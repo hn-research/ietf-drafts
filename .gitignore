@@ -1,0 +1,49 @@
+# RFCXML Project .gitignore
+
+# xml2rfc generated files
+*.html
+*.txt
+*.pdf
+*.xml.cache
+
+# Build artifacts
+build/
+output/
+dist/
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.*.sw[a-p]
+\#*\#
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Python (if using scripts)
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Backup files
+*.bak
+*.orig
+*~
+
+# Log files
+*.log
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Keep these (uncomment if you want to track generated files)
+# !draft-*.html
+# !draft-*.txt
