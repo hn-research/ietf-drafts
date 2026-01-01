@@ -51,19 +51,8 @@
     <!-- Can have more than one author -->
       
     <!-- all of the following elements are optional -->
-      <organization>Independent</organization> <!-- https://authors.ietf.org/en/rfcxml-vocabulary#organization -->
       <address> <!-- https://authors.ietf.org/en/rfcxml-vocabulary#address -->
-        <postal>
-          <!-- Reorder these if your country does things differently -->
-          <street>Street</street>
-          <city>City</city>
-          <region>Region</region>
-          <code>Postal code</code>
-          <country>Country</country>
-          <!-- Can use two letter country code -->
-        </postal>        
-        <phone>Phone</phone>
-        <email>Email</email>  
+        <email>agoswam1@uchicago.edu</email>  
         <!-- Can have more than one <email> element -->
         <uri>URI</uri>
       </address>
@@ -95,8 +84,8 @@
 
     <abstract>
       <t>
-        This document specifies Agentic JSON Web Token (Agentic JWT), an extension to OAuth 2.0 
-        <xref target="RFC6749"/> that addresses authorization challenges unique to autonomous 
+        This document specifies Agentic JSON Web Token (Agentic JWT), as an extension to OAuth 2.0 
+        <xref target="RFC6749"/>, <xref target="RFC6750"/> that addresses authorization challenges unique to autonomous 
         agentic AI systems. This protocol solves the problem of Zero-Trust drift due to 
         non-deterministic Agentic AI clients causing separation between user's (resource owner's) 
         intent and client application's actions. 
@@ -114,13 +103,14 @@
         (1) cryptographic agent identity through agent checksums (based on agent's system prompts, 
         tools and configurations), (2) workflow-aware token binding that links user intent to 
         agent execution, and (3) a new OAuth 2.0 grant type (agent_checksum) for secure token 
-        issuance, (4) a flavor of DPoP (Proof of Possession) at the level of an agentic 
+        issuance, (4) a flavor of PoP (Proof-of-Possession) at the level of an agentic 
         identity to prevent token replays by other agents in the same multi-agent 
         process.
       </t>
       
       <t>
-        This specification enables Zero-Trust security principles in multi-agent
+        This specification enables Zero-Trust security principles 
+        <xref target="NIST-SP-800-207"/> in multi-agent
         systems while maintaining backward compatibility with existing OAuth 2.0
         infrastructure. The security analysis and experimental validation are
         described in the companion research paper <xref target="PAPER-REF"></xref>.
@@ -152,7 +142,7 @@
         OAuth 2.0 cannot detect when a low-privilege classifier agent tricks
         a high-privilege patcher into modifying critical system files, as the
         bearer token provides no cryptographic binding between user intent and
-        agent execution.
+        agent execution. While next-generation protocols like GNAP <xref target="I-D.ietf-txauth-gnap"/> address some OAuth 2.0 limitations through JSON-based grant negotiation, they do not provide the agent-specific identity verification and workflow binding mechanisms required for autonomous AI systems.
       </t>
 
       <t>
@@ -186,17 +176,18 @@
           Agentic AI based applications are rapidly solving more use cases and have already 
           become targets for massive investments in enterprises across industries. Agentic 
           clients would likely proliferate much faster than the currently available Zero-Trust 
-          implementations, including OAuth 2.0. The fundamental Zero-Trust principles outlined 
-          in the NIST 800.63 publication <xref target="NIST-SP-800-63"></xref> are very much 
-          applicable and sound but current implementations need to catch up. This protocol 
-          enhancement attempts to achieve permanent protection from the possibility of 
-          Zero-Trust drift in API invocations done by agentic client applications. This 
-          specification outlines this novel protocol as fully backward compatible with the 
-          current OAuth 2.0 primitives while expanding the token issuance and resource server 
-          validation processes to recognzie agents as separate identities, their currently 
-          running version, the currently executing workflow and entire delegation chain in 
-          case of multi-agent applications. It also defines a way to make agentic clients 
-          auditable on the authorization server side.
+          implementations, including OAuth 2.0. The fundamental Zero-Trust principles 
+          <xref target="NIST-SP-800-207"/> outlined in the NIST 800.63 publication 
+          <xref target="NIST-SP-800-63"/> and <xref target="NIST-SP-800-63C"/> are very much applicable and sound but 
+          current implementations need to catch up. This protocol enhancement attempts 
+          to achieve permanent protection from the possibility of Zero-Trust drift in 
+          API invocations done by agentic client applications. This specification 
+          outlines this novel protocol as fully backward compatible with the 
+          current OAuth 2.0 primitives while expanding the token issuance and resource 
+          server validation processes to recognzie agents as separate identities, their 
+          currently running version, the currently executing workflow and entire 
+          delegation chain in case of multi-agent applications. It also defines a way to 
+          make agentic clients auditable on the authorization server side.
         </t>
       </section>
 
@@ -214,10 +205,10 @@
       
       <section anchor="companion-paper" title="Companion Research">
         <t>
-          A comprehensive threat modelling using the STRIDE methodology, including experimental 
-          evaluation, and performance analysis is described in the research paper, 
-          <xref target="PAPER-REF"></xref>. This document focuses on protocol specification for 
-          implementers.
+          A comprehensive threat modelling using the STRIDE methodology <xref target="SHOSTACK"/>, 
+          including experimental evaluation, and performance analysis is described in 
+          the research paper, <xref target="PAPER-REF"></xref>. This document focuses on 
+          protocol specification for implementers.
         </t>
       </section>
     </section>
@@ -248,10 +239,9 @@
         
         <dt anchor="intent_token">Intent Token:</dt>
         <dd>
-          A JWT issued by the authorization server that encapsulates
-          user-authorized intent. The intent token includes the workflow
-          definition, requested scopes, agent checksum binding, workflow 
-          delegation chain, and user approval status.
+          A JWT (JSON Web token, <xref target="RFC7519"/>) issued by the authorization server that encapsulates user-authorized intent. The intent token includes new 
+          claims, and semantics such the workflow definition, requested scopes, agent checksum binding, workflow delegation chain, and user approval status. It is fully 
+          compatible with plain JWT tokens and other JWT primitives like JWS (JSON Web Signature, <xref target="RFC7515"/>) and JWE (JSON Web Encryption, <xref target="RFC7516"/>).
         </dd>
         
         <dt>Workflow Binding:</dt>
@@ -265,7 +255,7 @@
         <dd>
           A cryptographic proof that an agent is authorized to execute
           a specific workflow on behalf of a user. Combines agent
-          identity verification, intent binding, and scope restrictions.
+          identity verification, intent binding, and scope restrictions. The mechanism is similar in spirit to OAuth 2.0 Token Exchange <xref target="RFC8693"/> but uses agent-specific cryptographic binding instead of token exchange grants.
         </dd>
         
         <dt>Agent Checksum Grant or agent_checksum:</dt>
@@ -1598,7 +1588,8 @@ Workflow: User → IDP → Intent Token → Agent → Access Token → API
           <t>
             This normalization is CRITICAL for cross-framework compatibility.
             Without it, the same logical tool would have different checksums
-            when used in LangChain vs CrewAI vs other frameworks. <xref target="LANGCHAIN"/>
+            when used in LangChain <xref target="LANGCHAIN"/> vs CrewAI <xref target="CREWAI"/> vs other frameworks. 
+            <xref target="LANGGRAPH"/>
           </t>
         </section>
         
@@ -2357,8 +2348,7 @@ Workflow: User → IDP → Intent Token → Agent → Access Token → API
             <li>
               <t>
               <strong>Public Key Generation (Optional):</strong>
-                If proof-of-possession is required, the agent generates an
-                RSA key pair and prepares the public key in PEM format.
+                If proof-of-possession <xref target="RFC7800"/> is required, the agent generates an RSA key pair and prepares the public key in PEM format.
               </t>
             </li>
             
@@ -3017,7 +3007,29 @@ Workflow: User → IDP → Intent Token → Agent → Access Token → API
         </section>
       </section>
       
-    </section>   
+    </section>
+
+    <section anchor="future-work" title="Future Work">
+      <name>Future Work</name>
+      
+      <t>
+        Future versions or extensions of this specification may align with the Grant Negotiation and Authorization Protocol (GNAP) <xref target="I-D.ietf-txauth-gnap"/>, 
+        which provides a JSON-based foundation for dynamic authorization scenarios. 
+        A GNAP binding for Agentic JWT would enable the agent-specific security 
+        mechanisms defined in this specification to work within the GNAP framework.
+      </t>
+      
+      <t>
+        Additional areas for future development include:
+      </t>
+      <ul>
+        <li>Integration with Model Context Protocol (MCP) standard <xref target="MCP"/></li>
+        <li>Support for additional hash algorithms beyond SHA-256</li>
+        <li>Cross-domain agent identity federation</li>
+        <li>Support for gRPC protocol. <xref target="GRPC"/></li>
+        <li>Support for prorietary protocols used for database connections, and asynchrnous messaging.</li>
+      </ul>
+    </section>
     
     <section anchor="IANA" title="IANA Considerations">
       
@@ -3285,6 +3297,10 @@ Workflow: User → IDP → Intent Token → Agent → Access Token → API
     <section anchor="security_considerations" title="Security Considerations">
       <!-- All drafts are required to have a security considerations section. See RFC 3552 for a guide. -->
       <name>Security Considerations</name>
+      <t>
+        This section describes Threat Model and Security Considerations similar to 
+        OAuth 2.0 <xref target="RFC6819"/>.
+      </t>
 
       <section anchor="sec_checksum" title="Checksum Security">
         <section anchor="checksum_verification_security" title="Checksum Verification Security">
@@ -3507,7 +3523,7 @@ Workflow: User → IDP → Intent Token → Agent → Access Token → API
           
           <t>
             For proof-of-possession key binding, implementations MUST support 
-            EdDSA with Ed25519 curves or ECDSA with P-256 curves. RSA keys 
+            EdDSA with Ed25519 curves <xref target="ED25519"/> or ECDSA with P-256 curves. RSA keys 
             with minimum 2048-bit length MAY be supported for backward 
             compatibility.
           </t>
@@ -3572,7 +3588,7 @@ Workflow: User → IDP → Intent Token → Agent → Access Token → API
         <name>Threat Analysis</name>
         
         <t>
-          The following 12 distinct security threats across six STRIDE categories, 
+          The following 12 distinct security threats across six STRIDE categories <xref target="SHOSTACK"/> 
           enumerated with their categorization and mitigation status in 
           <xref target="t-threats"/>, have been used to demonstrate the need for 
           this Agentic JWT protocol.
@@ -3687,11 +3703,12 @@ Workflow: User → IDP → Intent Token → Agent → Access Token → API
         </table>
         
         <t>
-          OWASP categories referenced: A01:2021 (Broken Access Control), 
+          OWASP categories referenced <xref target="OWASP-TOP10-2021"/> A01:2021 (Broken Access Control), 
           A02:2021 (Cryptographic Failures), A03:2021 (Injection), 
           A04:2021 (Insecure Design), A08:2021 (Software and Data Integrity Failures), 
           A09:2021 (Security Logging and Monitoring Failures), 
-          LLM01:2025 (Prompt Injection), LLM06:2025 (Excessive Agency).
+          LLM01:2025 (Prompt Injection) <xref target="OWASP-LLM01"/>, LLM06:2025 (Excessive Agency) 
+          <xref target="OWASP-LLM06"/>.
         </t>
         
         <t>
@@ -3728,7 +3745,8 @@ Workflow: User → IDP → Intent Token → Agent → Access Token → API
               <td>T1</td>
               <td>A malicious agent impersonates a legitimate agent by replicating 
               its identifier, source code structure, prompts, and tool configurations 
-              to create a malicious agent with identical checksum signatures.</td>
+              to create a malicious agent with identical checksum signatures.
+              <xref target="OWASP-LLM07"/></td>
               <td>Attacker gains access to agent source code (e.g., through repository 
               compromise) and creates a malicious agent with identical checksum 
               signatures.</td>
@@ -3761,7 +3779,8 @@ Workflow: User → IDP → Intent Token → Agent → Access Token → API
             <tr>
               <td>T5</td>
               <td>Malicious inputs cause LLM agents to generate unintended 
-              instructions that bypass security policies.</td>
+              instructions that bypass security policies. <xref target="OWASP-LLM01"/>, 
+              <xref target="PEREZ-PROMPT-INJECTION"/>.</td>
               <td>Crafted user inputs or external data sources containing 
               prompt injection payloads that manipulate agent reasoning.</td>
             </tr>
@@ -3793,7 +3812,7 @@ Workflow: User → IDP → Intent Token → Agent → Access Token → API
             <tr>
               <td>T9</td>
               <td>Agents request or utilize broader scopes than originally intended 
-              for the specific workflow step.</td>
+              for the specific workflow step. <xref target="OWASP-LLM06"/></td>
               <td>Token minting requests with inflated scopes or misuse of broad 
               scopes for unintended operations.</td>
             </tr>
@@ -4088,6 +4107,25 @@ Workflow: User → IDP → Intent Token → Agent → Access Token → API
           <seriesInfo name="FIPS PUB" value="180-4"/>
         </reference>
 
+        <!-- RFC 7800: Proof-of-Possession -->
+        <reference anchor="RFC7800" target="https://www.rfc-editor.org/info/rfc7800">
+          <front>
+            <title>Proof-of-Possession Key Semantics for JSON Web Tokens (JWTs)</title>
+            <author initials="M." surname="Jones" fullname="M. Jones">
+              <organization/>
+            </author>
+            <author initials="J." surname="Campbell" fullname="J. Campbell">
+              <organization/>
+            </author>
+            <author initials="J." surname="Bradley" fullname="J. Bradley">
+              <organization/>
+            </author>
+            <date year="2016" month="April"/>
+          </front>
+          <seriesInfo name="RFC" value="7800"/>
+          <seriesInfo name="DOI" value="10.17487/RFC7800"/>
+        </reference>        
+
       </references>
 
       <references title="Informative References">
@@ -4217,22 +4255,6 @@ Workflow: User → IDP → Intent Token → Agent → Access Token → API
           <seriesInfo name="DOI" value="10.6028/NIST.SP.800-207"/>
         </reference>
 
-        <!-- NIST SP 800-92: Log Management -->
-        <reference anchor="NIST-SP-800-92">
-          <front>
-            <title>Guide to Computer Security Log Management</title>
-            <author initials="K." surname="Kent" fullname="Karen Kent">
-              <organization>NIST</organization>
-            </author>
-            <author initials="M." surname="Souppaya" fullname="Murugiah Souppaya">
-              <organization>NIST</organization>
-            </author>
-            <date year="2006" month="September"/>
-          </front>
-          <seriesInfo name="NIST Special Publication" value="800-92"/>
-          <seriesInfo name="DOI" value="10.6028/NIST.SP.800-92"/>
-        </reference>
-
         <!-- OWASP Top 10 2021 -->
         <reference anchor="OWASP-TOP10-2021">
           <front>
@@ -4244,19 +4266,6 @@ Workflow: User → IDP → Intent Token → Agent → Access Token → API
           </front>
           <seriesInfo name="Version" value="2021"/>
           <format type="HTML" target="https://owasp.org/Top10/"/>
-        </reference>
-
-        <!-- OWASP Business Logic Testing -->
-        <reference anchor="OWASP-BUSINESS-LOGIC">
-          <front>
-            <title>OWASP Testing Guide: Testing for Business Logic Flaws</title>
-            <author>
-              <organization>OWASP Foundation</organization>
-            </author>
-            <date year="2020"/>
-          </front>
-          <seriesInfo name="Testing Guide" value="v4.2"/>
-          <format type="HTML" target="https://owasp.org/www-project-web-security-testing-guide/"/>
         </reference>
 
         <!-- OWASP LLM01: Prompt Injection -->
@@ -4335,30 +4344,6 @@ Workflow: User → IDP → Intent Token → Agent → Access Token → API
           <format type="HTML" target="https://github.com/langchain-ai/langgraph"/>
         </reference>
 
-        <!-- LangSmith -->
-        <reference anchor="LANGSMITH">
-          <front>
-            <title>LangSmith: Observability and Evaluation for LLM Applications</title>
-            <author>
-              <organization>LangChain</organization>
-            </author>
-            <date year="2024"/>
-          </front>
-          <format type="HTML" target="https://docs.langchain.com/langsmith/"/>
-        </reference>
-
-        <!-- AutoGPT -->
-        <reference anchor="AUTOGPT">
-          <front>
-            <title>AutoGPT: An Autonomous GPT-4 Experiment</title>
-            <author initials="T." surname="Richards" fullname="Toran Bruce Richards">
-              <organization/>
-            </author>
-            <date year="2023"/>
-          </front>
-          <format type="HTML" target="https://github.com/Significant-Gravitas/AutoGPT"/>
-        </reference>
-
         <!-- CrewAI -->
         <reference anchor="CREWAI">
           <front>
@@ -4395,85 +4380,6 @@ Workflow: User → IDP → Intent Token → Agent → Access Token → API
           <format type="HTML" target="https://grpc.io/docs/"/>
         </reference>
 
-        <!-- W3C: Verifiable Credentials -->
-        <reference anchor="W3C-VC">
-          <front>
-            <title>Verifiable Credentials Data Model v2.0</title>
-            <author>
-              <organization>W3C</organization>
-            </author>
-            <date year="2025" month="May"/>
-          </front>
-          <seriesInfo name="W3C Recommendation" value=""/>
-          <format type="HTML" target="https://www.w3.org/TR/vc-data-model-2.0/"/>
-        </reference>
-
-        <!-- RFC 9396: Rich Authorization Requests -->
-        <reference anchor="RFC9396" target="https://www.rfc-editor.org/info/rfc9396">
-          <front>
-            <title>OAuth 2.0 Rich Authorization Requests</title>
-            <author initials="T." surname="Lodderstedt" fullname="T. Lodderstedt">
-              <organization/>
-            </author>
-            <author initials="J." surname="Richer" fullname="J. Richer">
-              <organization/>
-            </author>
-            <author initials="B." surname="Campbell" fullname="B. Campbell">
-              <organization/>
-            </author>
-            <date year="2023" month="May"/>
-          </front>
-          <seriesInfo name="RFC" value="9396"/>
-          <seriesInfo name="DOI" value="10.17487/RFC9396"/>
-        </reference>
-
-        <!-- RFC 7800: Proof-of-Possession -->
-        <reference anchor="RFC7800" target="https://www.rfc-editor.org/info/rfc7800">
-          <front>
-            <title>Proof-of-Possession Key Semantics for JSON Web Tokens (JWTs)</title>
-            <author initials="M." surname="Jones" fullname="M. Jones">
-              <organization/>
-            </author>
-            <author initials="J." surname="Campbell" fullname="J. Campbell">
-              <organization/>
-            </author>
-            <author initials="J." surname="Bradley" fullname="J. Bradley">
-              <organization/>
-            </author>
-            <date year="2016" month="April"/>
-          </front>
-          <seriesInfo name="RFC" value="7800"/>
-          <seriesInfo name="DOI" value="10.17487/RFC7800"/>
-        </reference>
-
-        <!-- RFC 9440: HTTP Message Signatures -->
-        <reference anchor="RFC9440" target="https://www.rfc-editor.org/info/rfc9440">
-          <front>
-            <title>HTTP Message Signatures</title>
-            <author initials="M." surname="Cavage" fullname="M. Cavage">
-              <organization/>
-            </author>
-            <author initials="D." surname="Rudenko" fullname="D. Rudenko">
-              <organization/>
-            </author>
-            <author initials="P." surname="Saint-Andre" fullname="P. Saint-Andre">
-              <organization/>
-            </author>
-            <author initials="A." surname="Bukovsky" fullname="A. Bukovsky">
-              <organization/>
-            </author>
-            <author initials="C." surname="Stafford" fullname="C. A. Stafford">
-              <organization/>
-            </author>
-            <author initials="J." surname="Snyder" fullname="J. Snyder">
-              <organization/>
-            </author>
-            <date year="2023" month="April"/>
-          </front>
-          <seriesInfo name="RFC" value="9440"/>
-          <seriesInfo name="DOI" value="10.17487/RFC9440"/>
-        </reference>
-
         <!-- Ed25519 Signatures -->
         <reference anchor="ED25519">
           <front>
@@ -4499,195 +4405,7 @@ Workflow: User → IDP → Intent Token → Agent → Access Token → API
           <format type="HTML" target="https://eprint.iacr.org/2011/368"/>
         </reference>
 
-        <!-- Microsoft FY24 Q3 Earnings -->
-        <reference anchor="MSFT-FY24-Q3">
-          <front>
-            <title>Fiscal Year 2024 Third Quarter Earnings Call Transcript</title>
-            <author>
-              <organization>Microsoft Corporation</organization>
-            </author>
-            <date year="2024" month="April"/>
-          </front>
-          <format type="HTML" target="https://www.microsoft.com/en-us/Investor/events/FY-2024/earnings-fy-2024-q3"/>
-        </reference>
-
-        <!-- Baidu FY24 Q1 Earnings -->
-        <reference anchor="BAIDU-FY24-Q1">
-          <front>
-            <title>Fiscal Year 2024 First Quarter Earnings Call Transcript</title>
-            <author>
-              <organization>Baidu, Inc.</organization>
-            </author>
-            <date year="2024" month="May"/>
-          </front>
-          <format type="HTML" target="https://www.stockinsights.ai/us/BIDU/earnings-transcript/fy24-q1-f0c9"/>
-        </reference>
-
-        <!-- Wiz: State of AI in Cloud 2025 -->
-        <reference anchor="WIZ-AI-2025">
-          <front>
-            <title>The State of AI in the Cloud 2025</title>
-            <author>
-              <organization>Wiz Research Team</organization>
-            </author>
-            <date year="2025" month="January"/>
-          </front>
-          <format type="HTML" target="https://www.wiz.io/reports/the-state-of-ai-in-the-cloud-2025"/>
-        </reference>
-
-        <!-- Deloitte: Agentic AI Predictions -->
-        <reference anchor="DELOITTE-AGENTS-2025">
-          <front>
-            <title>Autonomous Generative AI Agents Are Still Under Development</title>
-            <author>
-              <organization>Deloitte Insights</organization>
-            </author>
-            <date year="2025" month="January"/>
-          </front>
-          <seriesInfo name="Deloitte TMT Predictions" value="2025"/>
-          <format type="HTML" target="https://www2.deloitte.com/us/en/insights/industry/technology/technology-media-and-telecom-predictions/2025/autonomous-generative-ai-agents-still-under-development.html"/>
-        </reference>
-
-        <!-- Gartner: Agentic AI -->
-        <reference anchor="GARTNER-AGENTS-2024">
-          <front>
-            <title>Intelligent Agent in AI: Definition, Examples and Impact</title>
-            <author>
-              <organization>Gartner, Inc.</organization>
-            </author>
-            <date year="2024" month="October"/>
-          </front>
-          <format type="HTML" target="https://www.gartner.com/en/articles/intelligent-agent-in-ai"/>
-        </reference>
-
-        <!-- CyberArk: Machine Identities -->
-        <reference anchor="CYBERARK-MACHINE-ID">
-          <front>
-            <title>The Rise of Machine Identities</title>
-            <author>
-              <organization>CyberArk Labs</organization>
-            </author>
-            <date year="2023"/>
-          </front>
-          <format type="HTML" target="https://www.cyberark.com/resources/threat-research/rise-of-machine-identities"/>
-        </reference>
-
-        <!-- Google BeyondCorp -->
-        <reference anchor="BEYONDCORP">
-          <front>
-            <title>BeyondCorp: A New Approach to Enterprise Security</title>
-            <author>
-              <organization>Google, Inc.</organization>
-            </author>
-            <date year="2014"/>
-          </front>
-          <annotation>White Paper</annotation>
-          <format type="PDF" target="https://cloud.google.com/files/zero-trust-whitepaper.pdf"/>
-        </reference>
-
-        <!-- Heartbleed CVE -->
-        <reference anchor="CVE-2014-0160">
-          <front>
-            <title>CVE-2014-0160: OpenSSL Heartbleed Vulnerability</title>
-            <author>
-              <organization>National Institute of Standards and Technology</organization>
-            </author>
-            <date year="2014"/>
-          </front>
-          <seriesInfo name="National Vulnerability Database" value=""/>
-          <format type="HTML" target="https://nvd.nist.gov/vuln/detail/CVE-2014-0160"/>
-        </reference>
-
-        <!-- SolarWinds CVE -->
-        <reference anchor="CVE-2021-44228">
-          <front>
-            <title>CVE-2021-44228: Apache Log4j2 Remote Code Execution Vulnerability</title>
-            <author>
-              <organization>National Institute of Standards and Technology</organization>
-            </author>
-            <date year="2021"/>
-          </front>
-          <seriesInfo name="National Vulnerability Database" value=""/>
-          <format type="HTML" target="https://nvd.nist.gov/vuln/detail/CVE-2021-44228"/>
-        </reference>
-
-        <!-- Jenkins CVE -->
-        <reference anchor="CVE-2020-15228">
-          <front>
-            <title>CVE-2020-15228: Jenkins Pipeline Build Step Plugin Cross-Site Scripting</title>
-            <author>
-              <organization>National Institute of Standards and Technology</organization>
-            </author>
-            <date year="2020"/>
-          </front>
-          <seriesInfo name="National Vulnerability Database" value=""/>
-          <format type="HTML" target="https://nvd.nist.gov/vuln/detail/CVE-2020-15228"/>
-        </reference>
-
-        <!-- Capital One Breach -->
-        <reference anchor="CAPITAL-ONE-2020">
-          <front>
-            <title>Consent Order: Capital One, National Association</title>
-            <author>
-              <organization>Office of the Comptroller of the Currency</organization>
-            </author>
-            <date year="2020" month="August"/>
-          </front>
-          <seriesInfo name="U.S. Department of the Treasury" value="Tech. Rep. 2020-62"/>
-          <format type="PDF" target="https://www.occ.gov/static/enforcement-actions/ea2020-62.pdf"/>
-        </reference>
-
-        <!-- SolarWinds Advisory -->
-        <reference anchor="CISA-AA21-116A">
-          <front>
-            <title>Joint Cybersecurity Advisory: Russian SVR Targets U.S. and Allied Networks</title>
-            <author>
-              <organization>Cybersecurity and Infrastructure Security Agency</organization>
-            </author>
-            <author>
-              <organization>Federal Bureau of Investigation</organization>
-            </author>
-            <author>
-              <organization>National Security Agency</organization>
-            </author>
-            <date year="2021" month="April"/>
-          </front>
-          <seriesInfo name="U.S. Department of Homeland Security" value="Tech. Rep. AA21-116A"/>
-          <format type="HTML" target="https://www.cisa.gov/news-events/cybersecurity-advisories/aa21-116a"/>
-        </reference>
-
-        <!-- Twitter Hack DOJ -->
-        <reference anchor="TWITTER-HACK-2020">
-          <front>
-            <title>Three Individuals Charged for Alleged Roles in Twitter Hack</title>
-            <author>
-              <organization>U.S. Department of Justice</organization>
-            </author>
-            <date year="2020" month="July"/>
-          </front>
-          <annotation>Press Release</annotation>
-          <format type="HTML" target="https://www.justice.gov/usao-ndca/pr/three-individuals-charged-alleged-roles-twitter-hack"/>
-        </reference>
-
-        <!-- Jailbroken Paper -->
-        <reference anchor="WEI-JAILBROKEN">
-          <front>
-            <title>Jailbroken: How Does LLM Safety Training Fail?</title>
-            <author initials="A." surname="Wei" fullname="Alexander Wei">
-              <organization/>
-            </author>
-            <author initials="N." surname="Haghtalab" fullname="Nika Haghtalab">
-              <organization/>
-            </author>
-            <author initials="J." surname="Steinhardt" fullname="Jacob Steinhardt">
-              <organization/>
-            </author>
-            <date year="2023"/>
-          </front>
-          <seriesInfo name="arXiv" value="arXiv:2305.13860"/>
-          <format type="HTML" target="https://arxiv.org/abs/2305.13860"/>
-        </reference>
-
+        
         <!-- Ignore Previous Prompt -->
         <reference anchor="PEREZ-PROMPT-INJECTION">
           <front>
@@ -4705,100 +4423,7 @@ Workflow: User → IDP → Intent Token → Agent → Access Token → API
           <format type="HTML" target="https://arxiv.org/abs/2211.09527"/>
         </reference>
 
-        <!-- SSL Certificate Validation -->
-        <reference anchor="GEORGIEV-SSL">
-          <front>
-            <title>The Most Dangerous Code in the World: Validating SSL Certificates in Non-Browser Software</title>
-            <author initials="M." surname="Georgiev" fullname="Martin Georgiev">
-              <organization/>
-            </author>
-            <author initials="S." surname="Iyengar" fullname="Subodh Iyengar">
-              <organization/>
-            </author>
-            <author initials="S." surname="Jana" fullname="Suman Jana">
-              <organization/>
-            </author>
-            <author initials="R." surname="Anubhai" fullname="Rishita Anubhai">
-              <organization/>
-            </author>
-            <author initials="D." surname="Boneh" fullname="Dan Boneh">
-              <organization/>
-            </author>
-            <author initials="V." surname="Shmatikov" fullname="Vitaly Shmatikov">
-              <organization/>
-            </author>
-            <date year="2012"/>
-          </front>
-          <seriesInfo name="DOI" value="10.1145/2382196.2382204"/>
-          <annotation>Proceedings of the 2012 ACM Conference on Computer and Communications Security, pp. 38-49</annotation>
-        </reference>
-
-        <!-- TEE Attestation -->
-        <reference anchor="MENETREY-TEE">
-          <front>
-            <title>Attestation Mechanisms for Trusted Execution Environments Demystified</title>
-            <author initials="J." surname="Ménétrey" fullname="Jämes Ménétrey">
-              <organization/>
-            </author>
-            <author initials="C." surname="Göttel" fullname="Christian Göttel">
-              <organization/>
-            </author>
-            <author initials="A." surname="Khurshid" fullname="Anum Khurshid">
-              <organization/>
-            </author>
-            <author initials="M." surname="Pasin" fullname="Marcelo Pasin">
-              <organization/>
-            </author>
-            <author initials="P." surname="Felber" fullname="Pascal Felber">
-              <organization/>
-            </author>
-            <author initials="V." surname="Schiavoni" fullname="Valerio Schiavoni">
-              <organization/>
-            </author>
-            <author initials="S." surname="Raza" fullname="Shahid Raza">
-              <organization/>
-            </author>
-            <date year="2022"/>
-          </front>
-          <seriesInfo name="DOI" value="10.1007/978-3-031-16092-9_7"/>
-          <annotation>Distributed Applications and Interoperable Systems, Springer, pp. 95-113</annotation>
-        </reference>
-
-        <!-- PromptGuard -->
-        <reference anchor="SUN-PROMPTGUARD">
-          <front>
-            <title>PromptGuard: Safe Prompt Learning for Large Language Models</title>
-            <author initials="T." surname="Sun" fullname="Tony Sun">
-              <organization/>
-            </author>
-            <author initials="H." surname="Chung" fullname="Hyung Won Chung">
-              <organization/>
-            </author>
-            <author initials="R." surname="Vadlamudi" fullname="Raviteja Vadlamudi">
-              <organization/>
-            </author>
-            <date year="2023"/>
-          </front>
-          <seriesInfo name="arXiv" value="arXiv:2311.05657"/>
-        </reference>
-
-        <!-- NeMo Guardrails -->
-        <reference anchor="KOCETKOV-GUARDRAILS">
-          <front>
-            <title>NeMo Guardrails: A Toolkit for Controllable and Safe LLM Applications</title>
-            <author initials="D." surname="Kocetkov" fullname="Denis Kocetkov">
-              <organization/>
-            </author>
-            <author initials="N." surname="Rajani" fullname="Nazneen Rajani">
-              <organization/>
-            </author>
-            <date year="2023"/>
-          </front>
-          <seriesInfo name="arXiv" value="arXiv:2306.04556"/>
-          <format type="HTML" target="https://arxiv.org/abs/2306.04556"/>
-        </reference>
-
-        <!-- Your Patent Application -->
+        <!-- Patent -->
         <reference anchor="GOSWAMI-PATENT">
           <front>
             <title>Cryptographic Agent Authentication and Intent Delegation System with Checksum Based Identity Verification and Workflow Aware Token Binding</title>
@@ -4871,12 +4496,6 @@ Workflow: User → IDP → Intent Token → Agent → Access Token → API
       </references>
     </references>
     
-    
-    <section>
-      <name>Appendix 1</name>
-      <t>This becomes an Appendix</t>
-    </section>
-
     <section anchor="Acknowledgements" numbered="false">
       <!-- an Acknowledgements section is optional -->
       <name>Acknowledgements</name>
@@ -4888,11 +4507,10 @@ Workflow: User → IDP → Intent Token → Agent → Access Token → API
       <!-- a Contributors section is optional -->
       <name>Contributors</name>
       <t>Thanks to all of the contributors.</t>
-      <contact fullname="Jane Doe" initials="J" surname="Doe"><!-- https://authors.ietf.org/en/rfcxml-vocabulary#contact-->
+      <contact fullname="Abhishek Goswami" initials="A" surname="Goswami"><!-- https://authors.ietf.org/en/rfcxml-vocabulary#contact-->
         <!-- including contact information for contributors is optional -->
-        <organization>Acme</organization>
         <address>
-          <email>jdoe@example.com</email>
+          <email>agoswam1@uchicago.com</email>
         </address>
       </contact>
     </section>
