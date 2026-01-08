@@ -1,0 +1,492 @@
+<section anchor="IANA" title="IANA Considerations">
+      <name>IANA Considerations</name>
+      <section anchor="iana-overview" title="Overview">
+        <t>
+          This specification defines a new OAuth 2.0 authorization grant type,
+          new JWT claims, new OAuth parameters, and new error codes. These
+          require registration in the appropriate IANA registries as described
+          in the following subsections.
+        </t>
+      </section>
+      
+      <section anchor="iana-grant-type" title="OAuth Authorization Grant Type Registration">
+        <t>
+          This specification registers the following grant type in the "OAuth
+          Authorization Grant Types" registry defined in Section 11.1 of 
+          RFC 6749 <xref target="RFC6749"/>:
+        </t>
+        
+        <dl spacing="normal">
+          <dt>Grant Type Name:</dt>
+          <dd>agent_checksum</dd>
+          
+          <dt>Grant Type URI:</dt>
+          <dd>urn:ietf:params:oauth:grant-type:agent_checksum</dd>
+          
+          <dt>Change Controller:</dt>
+          <dd>IETF</dd>
+          
+          <dt>Specification Document:</dt>
+          <dd>[this document]</dd>
+          
+          <dt>Notes:</dt>
+          <dd>
+            This grant type enables autonomous AI agents to obtain access
+            tokens by proving their identity through cryptographic checksum
+            verification. See Section 4 for complete specification.
+          </dd>
+        </dl>
+      </section>
+      
+      <section anchor="iana-jwt-claims" title="JWT Claims Registration">
+        <t>
+          This specification registers the following claims in the "JSON Web
+          Token Claims" registry defined in Section 10.1 of RFC 7519
+          <xref target="RFC7519"/>:
+        </t>
+        
+        <section anchor="iana-claim-workflow-id" title="workflow_id Claim">
+          <dl spacing="normal">
+            <dt>Claim Name:</dt>
+            <dd>workflow_id</dd>
+            
+            <dt>Claim Description:</dt>
+            <dd>Identifier of the workflow being executed</dd>
+            
+            <dt>Change Controller:</dt>
+            <dd>IETF</dd>
+            
+            <dt>Specification Document:</dt>
+            <dd>[this document], Section 4.4.2</dd>
+          </dl>
+        </section>
+        
+        <section anchor="iana-claim-workflow-step" title="workflow_step Claim">
+          <dl spacing="normal">
+            <dt>Claim Name:</dt>
+            <dd>workflow_step</dd>
+            
+            <dt>Claim Description:</dt>
+            <dd>Identifier of the current workflow step being executed</dd>
+            
+            <dt>Change Controller:</dt>
+            <dd>IETF</dd>
+            
+            <dt>Specification Document:</dt>
+            <dd>[this document], Section 4.4.2</dd>
+          </dl>
+        </section>
+        
+        <section anchor="iana-claim-executed-by" title="executed_by Claim">
+          <dl spacing="normal">
+            <dt>Claim Name:</dt>
+            <dd>executed_by</dd>
+            
+            <dt>Claim Description:</dt>
+            <dd>Agent identifier executing the current workflow step</dd>
+            
+            <dt>Change Controller:</dt>
+            <dd>IETF</dd>
+            
+            <dt>Specification Document:</dt>
+            <dd>[this document], Section 4.4.2</dd>
+          </dl>
+        </section>
+        
+        <section anchor="iana-claim-delegation-chain" title="delegation_chain Claim">
+          <dl spacing="normal">
+            <dt>Claim Name:</dt>
+            <dd>delegation_chain</dd>
+            
+            <dt>Claim Description:</dt>
+            <dd>
+              Cryptographic hash of the agent delegation sequence, computed
+              as SHA-256 over pipe-delimited agent identifiers
+            </dd>
+            
+            <dt>Change Controller:</dt>
+            <dd>IETF</dd>
+            
+            <dt>Specification Document:</dt>
+            <dd>[this document], Section 4.4.4</dd>
+          </dl>
+        </section>
+        
+        <section anchor="iana-claim-step-sequence-hash" title="step_sequence_hash Claim">
+          <dl spacing="normal">
+            <dt>Claim Name:</dt>
+            <dd>step_sequence_hash</dd>
+            
+            <dt>Claim Description:</dt>
+            <dd>
+              Cryptographic hash of completed workflow steps, computed as
+              SHA-256 over pipe-delimited step identifiers
+            </dd>
+            
+            <dt>Change Controller:</dt>
+            <dd>IETF</dd>
+            
+            <dt>Specification Document:</dt>
+            <dd>[this document], Section 4.4.4</dd>
+          </dl>
+        </section>
+        
+        <section anchor="iana-claim-agent-checksum" title="agent_checksum Claim">
+          <dl spacing="normal">
+            <dt>Claim Name:</dt>
+            <dd>agent_checksum</dd>
+            
+            <dt>Claim Description:</dt>
+            <dd>
+              SHA-256 checksum of the agent's configuration (prompt, tools,
+              parameters), used for cryptographic identity verification
+            </dd>
+            
+            <dt>Change Controller:</dt>
+            <dd>IETF</dd>
+            
+            <dt>Specification Document:</dt>
+            <dd>[this document], Section 5 (Agent Identity)</dd>
+          </dl>
+        </section>
+        
+        <section anchor="iana-claim-registration-id" title="registration_id Claim">
+          <dl spacing="normal">
+            <dt>Claim Name:</dt>
+            <dd>registration_id</dd>
+            
+            <dt>Claim Description:</dt>
+            <dd>
+              Unique identifier for the agent registration instance, enabling
+              token revocation at the registration level
+            </dd>
+            
+            <dt>Change Controller:</dt>
+            <dd>IETF</dd>
+            
+            <dt>Specification Document:</dt>
+            <dd>[this document], Section 5.4 (Agent Registration)</dd>
+          </dl>
+        </section>
+      </section>
+      
+      <section anchor="iana-oauth-params" title="OAuth Parameters Registration">
+        <t>
+          This specification registers the following parameters in the "OAuth
+          Parameters" registry defined in Section 11.2 of RFC 6749
+          <xref target="RFC6749"/>:
+        </t>
+        
+        <section anchor="iana-param-agent-id" title="agent_id Parameter">
+          <dl spacing="normal">
+            <dt>Parameter Name:</dt>
+            <dd>agent_id</dd>
+            
+            <dt>Parameter Usage Location:</dt>
+            <dd>token request</dd>
+            
+            <dt>Change Controller:</dt>
+            <dd>IETF</dd>
+            
+            <dt>Specification Document:</dt>
+            <dd>[this document], Section 4.2.1</dd>
+            
+            <dt>Related Information:</dt>
+            <dd>
+              Unique identifier of the registered agent requesting a token
+            </dd>
+          </dl>
+        </section>
+        
+        <section anchor="iana-param-computed-checksum" title="computed_checksum Parameter">
+          <dl spacing="normal">
+            <dt>Parameter Name:</dt>
+            <dd>computed_checksum</dd>
+            
+            <dt>Parameter Usage Location:</dt>
+            <dd>token request</dd>
+            
+            <dt>Change Controller:</dt>
+            <dd>IETF</dd>
+            
+            <dt>Specification Document:</dt>
+            <dd>[this document], Section 4.2.1</dd>
+            
+            <dt>Related Information:</dt>
+            <dd>
+              SHA-256 checksum computed over the agent's current configuration,
+              used to verify agent identity
+            </dd>
+          </dl>
+        </section>
+        
+        <section anchor="iana-param-workflow-id" title="workflow_id Parameter">
+          <dl spacing="normal">
+            <dt>Parameter Name:</dt>
+            <dd>workflow_id</dd>
+            
+            <dt>Parameter Usage Location:</dt>
+            <dd>token request</dd>
+            
+            <dt>Change Controller:</dt>
+            <dd>IETF</dd>
+            
+            <dt>Specification Document:</dt>
+            <dd>[this document], Section 4.2.1</dd>
+            
+            <dt>Related Information:</dt>
+            <dd>
+              Identifier of the registered workflow being executed
+            </dd>
+          </dl>
+        </section>
+        
+        <section anchor="iana-param-workflow-step" title="workflow_step Parameter">
+          <dl spacing="normal">
+            <dt>Parameter Name:</dt>
+            <dd>workflow_step</dd>
+            
+            <dt>Parameter Usage Location:</dt>
+            <dd>token request</dd>
+            
+            <dt>Change Controller:</dt>
+            <dd>IETF</dd>
+            
+            <dt>Specification Document:</dt>
+            <dd>[this document], Section 4.2.1</dd>
+            
+            <dt>Related Information:</dt>
+            <dd>
+              Identifier of the specific workflow step being executed
+            </dd>
+          </dl>
+        </section>
+        
+        <section anchor="iana-param-workflow-enabled" title="workflow_enabled Parameter">
+          <dl spacing="normal">
+            <dt>Parameter Name:</dt>
+            <dd>workflow_enabled</dd>
+            
+            <dt>Parameter Usage Location:</dt>
+            <dd>token request</dd>
+            
+            <dt>Change Controller:</dt>
+            <dd>IETF</dd>
+            
+            <dt>Specification Document:</dt>
+            <dd>[this document], Section 4.2.1</dd>
+            
+            <dt>Related Information:</dt>
+            <dd>
+              Boolean indicating whether workflow validation should be enforced.
+              Default: false
+            </dd>
+          </dl>
+        </section>
+        
+        <section anchor="iana-param-delegation-context" title="delegation_context Parameter">
+          <dl spacing="normal">
+            <dt>Parameter Name:</dt>
+            <dd>delegation_context</dd>
+            
+            <dt>Parameter Usage Location:</dt>
+            <dd>token request</dd>
+            
+            <dt>Change Controller:</dt>
+            <dd>IETF</dd>
+            
+            <dt>Specification Document:</dt>
+            <dd>[this document], Section 4.2.1</dd>
+            
+            <dt>Related Information:</dt>
+            <dd>
+              Object containing delegation chain information for multi-agent
+              workflows, including "chain" (array of parent agent_ids) and
+              "completed_steps" (array of completed workflow step identifiers)
+            </dd>
+          </dl>
+        </section>
+        
+        <section anchor="iana-param-requested-scopes" title="requested_scopes Parameter">
+          <dl spacing="normal">
+            <dt>Parameter Name:</dt>
+            <dd>requested_scopes</dd>
+            
+            <dt>Parameter Usage Location:</dt>
+            <dd>token request</dd>
+            
+            <dt>Change Controller:</dt>
+            <dd>IETF</dd>
+            
+            <dt>Specification Document:</dt>
+            <dd>[this document], Section 4.2.1</dd>
+            
+            <dt>Related Information:</dt>
+            <dd>
+              Array of OAuth 2.0 scopes requested for the token. Alternative
+              to space-delimited "scope" parameter for better JSON compatibility.
+            </dd>
+          </dl>
+        </section>
+      </section>
+      
+      <section anchor="iana-oauth-errors" title="OAuth Extensions Error Registration">
+        <t>
+          This specification registers the following error codes in the "OAuth
+          Extensions Error Registry" defined in Section 11.4 of RFC 6749
+          <xref target="RFC6749"/>:
+        </t>
+        
+        <section anchor="iana-error-unknown-agent" title="unknown_agent Error">
+          <dl spacing="normal">
+            <dt>Error Name:</dt>
+            <dd>unknown_agent</dd>
+            
+            <dt>Error Usage Location:</dt>
+            <dd>token error response</dd>
+            
+            <dt>Related Protocol Extension:</dt>
+            <dd>Agent Checksum Grant Type</dd>
+            
+            <dt>Change Controller:</dt>
+            <dd>IETF</dd>
+            
+            <dt>Specification Document:</dt>
+            <dd>[this document], Section 4.5.2</dd>
+            
+            <dt>Error Description:</dt>
+            <dd>
+              The agent_id is not registered with the authorization server.
+              The agent must complete registration before requesting tokens.
+            </dd>
+          </dl>
+        </section>
+        
+        <section anchor="iana-error-checksum-mismatch" title="agent_checksum_mismatch Error">
+          <dl spacing="normal">
+            <dt>Error Name:</dt>
+            <dd>agent_checksum_mismatch</dd>
+            
+            <dt>Error Usage Location:</dt>
+            <dd>token error response</dd>
+            
+            <dt>Related Protocol Extension:</dt>
+            <dd>Agent Checksum Grant Type</dd>
+            
+            <dt>Change Controller:</dt>
+            <dd>IETF</dd>
+            
+            <dt>Specification Document:</dt>
+            <dd>[this document], Section 4.5.3</dd>
+            
+            <dt>Error Description:</dt>
+            <dd>
+              The computed_checksum does not match the registered checksum for
+              the agent_id. This indicates that the agent's configuration has
+              been modified since registration, representing a code integrity
+              violation.
+            </dd>
+          </dl>
+        </section>
+        
+        <section anchor="iana-error-workflow-unauthorized" title="workflow_step_unauthorized Error">
+          <dl spacing="normal">
+            <dt>Error Name:</dt>
+            <dd>workflow_step_unauthorized</dd>
+            
+            <dt>Error Usage Location:</dt>
+            <dd>token error response</dd>
+            
+            <dt>Related Protocol Extension:</dt>
+            <dd>Agent Checksum Grant Type</dd>
+            
+            <dt>Change Controller:</dt>
+            <dd>IETF</dd>
+            
+            <dt>Specification Document:</dt>
+            <dd>[this document], Section 4.5.4</dd>
+            
+            <dt>Error Description:</dt>
+            <dd>
+              The agent is not authorized to execute the specified workflow_step.
+              This may occur when prerequisite steps have not been completed or
+              required approval gates have not been passed.
+            </dd>
+          </dl>
+        </section>
+      </section>
+      
+      <section anchor="iana-media-types" title="Media Type Registration">
+        <t>
+          This specification does not define any new media types. Agent
+          identity verification and token issuance use existing media types:
+        </t>
+        
+        <ul spacing="normal">
+          <li>application/json - For token requests and responses</li>
+          <li>application/jwt - For intent tokens (as defined in RFC 7519)</li>
+        </ul>
+      </section>
+      
+      <section anchor="iana-uri-schemes" title="URI Scheme Registration">
+        <t>
+          This specification registers the following URI scheme for the
+          agent_checksum grant type:
+        </t>
+        
+        <dl spacing="normal">
+          <dt>URI Scheme:</dt>
+          <dd>urn:ietf:params:oauth:grant-type:agent_checksum</dd>
+          
+          <dt>Status:</dt>
+          <dd>provisional (pending RFC publication)</dd>
+          
+          <dt>Specification:</dt>
+          <dd>[this document]</dd>
+          
+          <dt>Description:</dt>
+          <dd>
+            Identifies the agent checksum grant type for OAuth 2.0
+            authorization. This grant type enables autonomous AI agents to
+            obtain access tokens through cryptographic identity verification.
+          </dd>
+        </dl>
+      </section>
+      
+      <section anchor="iana-summary" title="Registration Summary">
+        <t>
+          Summary of IANA registrations required by this specification:
+        </t>
+        
+        <artwork><![CDATA[
+    GRANT TYPES (1):
+      - agent_checksum
+
+    JWT CLAIMS (7):
+      - workflow_id
+      - workflow_step
+      - executed_by
+      - delegation_chain
+      - step_sequence_hash
+      - agent_checksum
+      - registration_id
+
+    OAUTH PARAMETERS (7):
+      - agent_id
+      - computed_checksum
+      - workflow_id
+      - workflow_step
+      - workflow_enabled
+      - delegation_context
+      - requested_scopes
+
+    ERROR CODES (3):
+      - unknown_agent
+      - agent_checksum_mismatch
+      - workflow_step_unauthorized
+
+    TOTAL REGISTRATIONS: 18
+        ]]></artwork>
+      </section>
+      
+    </section>

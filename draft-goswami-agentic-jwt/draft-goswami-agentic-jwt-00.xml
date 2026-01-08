@@ -23,7 +23,7 @@
 <rfc
   xmlns:xi="http://www.w3.org/2001/XInclude"
   category="info"
-  docName="draft-rfcxml-general-template-annotated-00"
+  docName="draft-goswami-agentic-jwt-00"
   ipr="trust200902"
   obsoletes=""
   updates=""
@@ -42,7 +42,7 @@
     <title abbrev="Agentic JWT Protocol">Secure Intent Protocol: JWT Compatible Agentic Identity and Workflow Management</title> <!-- https://authors.ietf.org/en/rfcxml-vocabulary#title-4 -->
     <!--  The abbreviated title is required if the full title is longer than 39 characters -->
 
-    <seriesInfo name="Internet-Draft" value="draft-rfcxml-general-template-annotated-00"/> <!-- https://authors.ietf.org/en/rfcxml-vocabulary#seriesinfo -->
+    <seriesInfo name="Internet-Draft" value="draft-goswami-agentic-jwt-00"/> <!-- https://authors.ietf.org/en/rfcxml-vocabulary#seriesinfo -->
     <!-- Set value to the name of the draft  -->
    
     <author fullname="Abhishek Goswami" initials="A." role="editor" surname="Goswami"> <!-- https://authors.ietf.org/en/rfcxml-vocabulary#author -->
@@ -52,13 +52,16 @@
       
     <!-- all of the following elements are optional -->
       <address> <!-- https://authors.ietf.org/en/rfcxml-vocabulary#address -->
-        <email>agoswam1@uchicago.edu</email>  
-        <!-- Can have more than one <email> element -->
-        <uri>URI</uri>
+        <postal>
+          <!-- Reorder these if your country does things differently -->
+          <country>US</country>
+          <!-- Can use two letter country code -->
+        </postal>
+        <email>abhishek@abhishekgoswami.io</email>  
       </address>
     </author>
    
-    <date year="2025"/> <!-- https://authors.ietf.org/en/rfcxml-vocabulary#date -->
+    <date year="2025" month="December" day="31"/> <!-- https://authors.ietf.org/en/rfcxml-vocabulary#date -->
     <!-- On draft submission:
          * If only the current year is specified, the current day and month will be used.
          * If the month and year are both specified and are the current ones, the current day will
@@ -84,8 +87,7 @@
 
     <abstract>
       <t>
-        This document specifies Agentic JSON Web Token (Agentic JWT), as an extension to OAuth 2.0 
-        <xref target="RFC6749"/>, <xref target="RFC6750"/> that addresses authorization challenges unique to autonomous 
+        This document specifies Agentic JSON Web Token (Agentic JWT), as an extension to OAuth 2.0 that addresses authorization challenges unique to autonomous 
         agentic AI systems. This protocol solves the problem of Zero-Trust drift due to 
         non-deterministic Agentic AI clients causing separation between user's (resource owner's) 
         intent and client application's actions. 
@@ -109,11 +111,10 @@
       </t>
       
       <t>
-        This specification enables Zero-Trust security principles 
-        <xref target="NIST-SP-800-207"/> in multi-agent
+        This specification enables Zero-Trust security principles in multi-agent
         systems while maintaining backward compatibility with existing OAuth 2.0
         infrastructure. The security analysis and experimental validation are
-        described in the companion research paper <xref target="PAPER-REF"></xref>.
+        described in the companion research paper.
       </t>
     </abstract>
  
@@ -209,6 +210,12 @@
           including experimental evaluation, and performance analysis is described in 
           the research paper, <xref target="PAPER-REF"></xref>. This document focuses on 
           protocol specification for implementers.
+        </t>
+
+        <t>
+          The system architecture and mechanisms described in this 
+          specification are the subject of U.S. Patent Application 
+          19/315,486 <xref target="PATENT-REF"/>.
         </t>
       </section>
     </section>
@@ -4424,7 +4431,7 @@ Workflow: User → IDP → Intent Token → Agent → Access Token → API
         </reference>
 
         <!-- Patent -->
-        <reference anchor="GOSWAMI-PATENT">
+        <reference anchor="PATENT-REF">
           <front>
             <title>Cryptographic Agent Authentication and Intent Delegation System with Checksum Based Identity Verification and Workflow Aware Token Binding</title>
             <author initials="A." surname="Goswami" fullname="Abhishek Goswami">
@@ -4499,18 +4506,17 @@ Workflow: User → IDP → Intent Token → Agent → Access Token → API
     <section anchor="Acknowledgements" numbered="false">
       <!-- an Acknowledgements section is optional -->
       <name>Acknowledgements</name>
-      <t>This template uses extracts from templates written by Pekka Savola, Elwyn Davies and 
-        Henrik Levkowetz.</t>
+      <t>This work builds upon the foundational contributions of the 
+    OAuth working group and the broader internet security community.</t>
     </section>
     
     <section anchor="Contributors" numbered="false">
       <!-- a Contributors section is optional -->
       <name>Contributors</name>
-      <t>Thanks to all of the contributors.</t>
       <contact fullname="Abhishek Goswami" initials="A" surname="Goswami"><!-- https://authors.ietf.org/en/rfcxml-vocabulary#contact-->
         <!-- including contact information for contributors is optional -->
         <address>
-          <email>agoswam1@uchicago.com</email>
+          <email>abhishek@abhishekgoswami.io</email>
         </address>
       </contact>
     </section>
