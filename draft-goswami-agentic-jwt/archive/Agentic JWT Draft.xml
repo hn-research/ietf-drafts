@@ -1,0 +1,4520 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 
+     draft-rfcxml-general-template-annotated-00
+  
+     This template includes examples of most of the features of RFCXML with comments explaining 
+     how to customise them, and examples of how to achieve specific formatting.
+     
+     Documentation is at https://authors.ietf.org/en/templates-and-schemas
+-->
+<?xml-model href="rfcxml-templates-and-schemas/rfc7991bis.rnc"?>  <!-- Required for schema validation and schema-aware editing -->
+<!-- <?xml-stylesheet type="text/xsl" href="rfc2629.xslt" ?> --> 
+<!-- This third-party XSLT can be enabled for direct transformations in XML processors, including most browsers -->
+
+<!DOCTYPE rfc [
+  <!ENTITY nbsp    "&#160;">
+  <!ENTITY zwsp   "&#8203;">
+  <!ENTITY nbhy   "&#8209;">
+  <!ENTITY wj     "&#8288;">
+]>
+<!-- If further character entities are required then they should be added to the DOCTYPE above.
+     Use of an external entity file is not recommended. -->
+
+<rfc
+  xmlns:xi="http://www.w3.org/2001/XInclude"
+  category="info"
+  docName="draft-goswami-agentic-jwt-00"
+  ipr="trust200902"
+  obsoletes=""
+  updates=""
+  submissionType="IETF"
+  xml:lang="en"
+  version="3">
+<!-- 
+    * docName should be the name of your draft
+    * category should be one of std, bcp, info, exp, historic
+    * ipr should be one of trust200902, noModificationTrust200902, noDerivativesTrust200902, pre5378Trust200902
+    * updates can be an RFC number as NNNN
+    * obsoletes can be an RFC number as NNNN 
+-->
+
+  <front>
+    <title abbrev="Agentic JWT Protocol">Secure Intent Protocol: JWT Compatible Agentic Identity and Workflow Management</title> <!-- https://authors.ietf.org/en/rfcxml-vocabulary#title-4 -->
+    <!--  The abbreviated title is required if the full title is longer than 39 characters -->
+
+    <seriesInfo name="Internet-Draft" value="draft-goswami-agentic-jwt-00"/> <!-- https://authors.ietf.org/en/rfcxml-vocabulary#seriesinfo -->
+    <!-- Set value to the name of the draft  -->
+   
+    <author fullname="Abhishek Goswami" initials="A." role="editor" surname="Goswami"> <!-- https://authors.ietf.org/en/rfcxml-vocabulary#author -->
+    <!-- initials should not include an initial for the surname -->
+    <!-- role="editor" is optional -->
+    <!-- Can have more than one author -->
+      
+    <!-- all of the following elements are optional -->
+      <address> <!-- https://authors.ietf.org/en/rfcxml-vocabulary#address -->
+        <email>abhishek@abhishekgoswami.io</email>  
+      </address>
+    </author>
+   
+    <date year="2025" month="December" day="31"/> <!-- https://authors.ietf.org/en/rfcxml-vocabulary#date -->
+    <!-- On draft submission:
+         * If only the current year is specified, the current day and month will be used.
+         * If the month and year are both specified and are the current ones, the current day will
+           be used
+         * If the year is not the current one, it is necessary to specify at least a month and day="1" will be used.
+    -->
+
+    <area>General</area>
+    <workgroup>Internet Engineering Task Force</workgroup>
+    <!-- "Internet Engineering Task Force" is fine for individual submissions.  If this element is 
+          not present, the default is "Network Working Group", which is used by the RFC Editor as 
+          a nod to the history of the RFC Series. -->
+    
+    <keyword>OAuth 2.0</keyword>
+    <keyword>JWT</keyword>
+    <keyword>AI Agents</keyword>
+    <keyword>Authorization</keyword>
+    <keyword>Agent Checksum</keyword>
+    <keyword>LangGraph</keyword>
+    <keyword>Autonomous Agents</keyword>
+    <!-- Multiple keywords are allowed.  Keywords are incorporated into HTML output files for 
+         use by search engines. -->
+
+    <abstract>
+      <t>
+        This document specifies Agentic JSON Web Token (Agentic JWT), as an extension to OAuth 2.0 that addresses authorization challenges unique to autonomous 
+        agentic AI systems. This protocol solves the problem of Zero-Trust drift due to 
+        non-deterministic Agentic AI clients causing separation between user's (resource owner's) 
+        intent and client application's actions. 
+      </t>
+
+      <t>Traditional OAuth 2.0 assumes that client applications faithfully 
+        represent user intent when requesting authorization. This assumption 
+        breaks down when autonomous AI agents dynamically generate workflows, 
+        create sub-agents, and make authorization decisions without continuous 
+        human oversight. We term this the "intent-execution separation problem."
+      </t>
+
+      <t>
+        Agentic JWT introduces three mechanisms to address this problem:
+        (1) cryptographic agent identity through agent checksums (based on agent's system prompts, 
+        tools and configurations), (2) workflow-aware token binding that links user intent to 
+        agent execution, and (3) a new OAuth 2.0 grant type (agent_checksum) for secure token 
+        issuance, (4) a flavor of PoP (Proof-of-Possession) at the level of an agentic 
+        identity to prevent token replays by other agents in the same multi-agent 
+        process.
+      </t>
+      
+      <t>
+        This specification enables Zero-Trust security principles in multi-agent
+        systems while maintaining backward compatibility with existing OAuth 2.0
+        infrastructure. The security analysis and experimental validation are
+        described in the companion research paper.
+      </t>
+    </abstract>
+ 
+  </front>
+
+  <middle>
+    
+    <section anchor="introduction" title="Introduction">
+    <!-- The default attributes for <section> are numbered="true" and toc="default" -->
+      <name>Introduction</name>
+      <t>
+        OAuth 2.0 is designed for deterministic client applications that execute some workflow on 
+        behalf of a resource owner <xref target="RFC6749"></xref>. The principle is that an 
+        authorization server (or Identity Provider, IDP) validates the client application using 
+        an authorization grant appoved by the resource owner and issues an access token as the 
+        proof of authorization, which is then used by some fixed workflow on the client to invoke 
+        an API hosted on the resource server. This mechanism breaks down for client applications 
+        using agentic AI with LLM reasoning because the decision to call resource server APIs 
+        could be taken by non-deterministic LLM reasoning that creates a separation between user's 
+        intent and actual agentic execution.
+      </t>
+
+      <t>
+        Consider a multi-agent vulnerability patching system where a supervisor
+        agent coordinates planner, classifier, and patcher sub-agents. Traditional
+        OAuth 2.0 cannot detect when a low-privilege classifier agent tricks
+        a high-privilege patcher into modifying critical system files, as the
+        bearer token provides no cryptographic binding between user intent and
+        agent execution. While next-generation protocols like GNAP <xref target="I-D.ietf-txauth-gnap"/> address some OAuth 2.0 limitations through JSON-based grant negotiation, they do not provide the agent-specific identity verification and workflow binding mechanisms required for autonomous AI systems.
+      </t>
+
+      <t>
+        This document addresses the following critical gaps in existing authorization
+        frameworks for autonomous agents:
+      </t>
+      
+      <ul>
+        <li>Agent Identity: How to cryptographically verify agent identity
+            beyond client_id credentials</li>
+        <li>Intent Binding: How to bind user-authorized intent to specific
+            agent workflows</li>
+        <li>Delegation Control: How to prevent unauthorized cross-agent
+            privilege escalation</li>
+        <li>Agent level Proof-of-Posession: How to prevent token replaying by another 
+          agent running within the same client process.
+        </li>
+      </ul>
+
+      <t>
+        This specification does NOT address:
+      </t>
+      <ul>
+        <li>Model non-determinism or LLM safety</li>
+        <li>Agent framework-specific implementation details</li>
+        <li>Performance optimization techniques</li>
+      </ul>
+      
+      <section anchor="motivation" title="Motivation">
+        <t>
+          Agentic AI based applications are rapidly solving more use cases and have already 
+          become targets for massive investments in enterprises across industries. Agentic 
+          clients would likely proliferate much faster than the currently available Zero-Trust 
+          implementations, including OAuth 2.0. The fundamental Zero-Trust principles 
+          <xref target="NIST-SP-800-207"/> outlined in the NIST 800.63 publication 
+          <xref target="NIST-SP-800-63"/> and <xref target="NIST-SP-800-63C"/> are very much applicable and sound but 
+          current implementations need to catch up. This protocol enhancement attempts 
+          to achieve permanent protection from the possibility of Zero-Trust drift in 
+          API invocations done by agentic client applications. This specification 
+          outlines this novel protocol as fully backward compatible with the 
+          current OAuth 2.0 primitives while expanding the token issuance and resource 
+          server validation processes to recognzie agents as separate identities, their 
+          currently running version, the currently executing workflow and entire 
+          delegation chain in case of multi-agent applications. It also defines a way to 
+          make agentic clients auditable on the authorization server side.
+        </t>
+      </section>
+
+      <section anchor="requirements">
+      <!-- anchor is an optional attribute -->
+        <name>Requirements Language</name>
+        <t>The key words "MUST", "MUST NOT", "REQUIRED", "SHALL",
+          "SHALL NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED", "NOT
+          RECOMMENDED", "MAY", and "OPTIONAL" in this document are to be
+          interpreted as described in BCP 14 <xref target="RFC2119"/>
+          <xref target="RFC8174"/> when, and only when, they appear in
+          all capitals, as shown here.</t>
+      </section>
+      <!-- The 'Requirements Language' section is optional -->
+      
+      <section anchor="companion-paper" title="Companion Research">
+        <t>
+          A comprehensive threat modelling using the STRIDE methodology <xref target="SHOSTACK"/>, 
+          including experimental evaluation, and performance analysis is described in 
+          the research paper, <xref target="PAPER-REF"></xref>. This document focuses on 
+          protocol specification for implementers.
+        </t>
+
+        <t>
+          The system architecture and mechanisms described in this 
+          specification are the subject of U.S. Patent Application 
+          19/315,486 <xref target="PATENT-REF"/>.
+        </t>
+      </section>
+    </section>
+
+    <section anchor="terminology" title="Terminology">
+      <t>
+        This document uses the following terms in addition to those
+        defined in <xref target="RFC6749"></xref> and <xref target="RFC7519"></xref>
+      </t>
+      
+      <dl newline="true">
+        <dt>Agentic Client:</dt>
+        <dd>
+          An autonomous AI agent that acts as an OAuth 2.0 client.
+          Unlike traditional clients, agentic clients can dynamically
+          generate workflows, create sub-agents, and make authorization
+          decisions without continuous human interaction.
+        </dd>
+        
+        <dt anchor="agent_checksum">Agent Checksum:</dt>
+        <dd>
+          A SHA-256 cryptographic hash computed over the agent's
+          configuration, including system prompt, available tools,
+          and model parameters. The agent checksum uniquely identifies
+          the agent's behavioral specification and serves as its
+          cryptographic identity.
+        </dd>
+        
+        <dt anchor="intent_token">Intent Token:</dt>
+        <dd>
+          A JWT (JSON Web token, <xref target="RFC7519"/>) issued by the authorization server that encapsulates user-authorized intent. The intent token includes new 
+          claims, and semantics such the workflow definition, requested scopes, agent checksum binding, workflow delegation chain, and user approval status. It is fully 
+          compatible with plain JWT tokens and other JWT primitives like JWS (JSON Web Signature, <xref target="RFC7515"/>) and JWE (JSON Web Encryption, <xref target="RFC7516"/>).
+        </dd>
+        
+        <dt>Workflow Binding:</dt>
+        <dd>
+          The cryptographic association between a user-approved workflow
+          and the access token issued for its execution. Implemented
+          through the workflow_id and workflow_hash claims.
+        </dd>
+        
+        <dt>Delegation Assertion:</dt>
+        <dd>
+          A cryptographic proof that an agent is authorized to execute
+          a specific workflow on behalf of a user. Combines agent
+          identity verification, intent binding, and scope restrictions. The mechanism is similar in spirit to OAuth 2.0 Token Exchange <xref target="RFC8693"/> but uses agent-specific cryptographic binding instead of token exchange grants.
+        </dd>
+        
+        <dt>Agent Checksum Grant or agent_checksum:</dt>
+        <dd>
+          A new OAuth 2.0 grant type (defined in Section 7) that allows
+          agents to exchange intent tokens for access tokens using
+          agent checksum verification instead of client credentials.
+        </dd>
+        
+        <dt>Supervisor Agent:</dt>
+        <dd>
+          In multi-agent systems, the agent that coordinates sub-agent
+          workflows and maintains the delegation chain. Referenced in
+          examples throughout this document.
+        </dd>
+        
+        <dt>Intent-Execution Separation:</dt>
+        <dd>
+          The security gap that occurs when an agent executes actions
+          that diverge from user-authorized intent. Traditional OAuth 2.0
+          cannot detect this separation because bearer tokens do not
+          bind authorization to specific execution contexts.
+        </dd>
+
+        <dt>Human in the Loop</dt>
+        <dd>
+          An agentic AI architectural pattern that involves some steps of an agentic workflow 
+          to be done or approved by human. The agentic workflow executes to a specific 
+          point and then pauses by notifying for human approval, it then waits until an 
+          approval is received before continuiing with the workflow.
+        </dd>
+
+        <dt>Authorization Server or Identity Provider or IDP</dt>
+        <dd>This is the "Authorization Server" as defined in <xref target="RFC6749"/></dd>
+
+        <dt anchor="client_shim_library">Client Shim Library</dt>
+        <dd>
+          Designed to be used as a dependency in any agentic client application to make the 
+          protocol flow of this intent based agentic jwt protocol easy to implement. It 
+          reduces the work on these client applications to a single line of code and hides 
+          all the complexity involved in performing the tasks necessary for seamless minting 
+          of intent tokens, verifying agent registrations from IDP (or Authorization Server), 
+          and tracking runtime agent workflow so that workflow state can be used while 
+          requesting an intent token.
+        </dd>
+
+      </dl>
+      
+      <section anchor="agent-types" title="Agent Classifications">
+        <t>
+          This specification recognizes three agent types based on
+          autonomy level:
+        </t>
+        
+        <dl>
+          <dt>Fully Supervised Agents:</dt>
+          <dd>Require human approval for each action</dd>
+          
+          <dt>Semi-Autonomous Agents:</dt>
+          <dd>Execute pre-approved workflows with human oversight, such as when using 
+            Human in the Loop pattern.
+          </dd>
+          
+          <dt>Fully Autonomous Agents:</dt>
+          <dd>Execute complete workflows without human intervention</dd>
+        </dl>
+        
+        <t>
+          The security requirements vary by agent type, with fully
+          autonomous agents requiring the strongest guarantees.
+        </t>
+      </section>
+    </section>
+    
+    <section anchor="architecture" title="Architecture Overview">
+
+      <section anchor="architectural_components" title="Architectural Components">
+        <t>
+          This agentic JWT architecture introduces the following novel (but backward compatible) 
+          protocol features: 
+        </t>
+        <ul>
+          <li>Enhancements in JWT Claims: The protocol introduces some new claims required for 
+            supporting the verification of agentic AI clients.
+          </li>
+          <li>A new Authorization Grant called agent_checksum: The protcol introduces a novel 
+            authorization grant <xref target="RFC6749"/> called agent_checksum that allows the 
+            agentic client applications to act on behalf of the resource owner and enables the 
+            authorization servers to issue tokens without explicit credentials, by simply using 
+            an agent's runtime identity. An agent's runtime identity is typically composed of 
+            its system prompt, its tool specification (or a hash of actual tool function code), 
+            and LLM configuration (if applicable).
+          </li>
+          <li>Authorization Server token issuing protocol: The protocol adds unique 
+            verification capabilities on the authorization server side used during token 
+            issuance process.
+          </li>
+          <li>Resource Server verification protocol: The protocol adds additional verification 
+            capabilities on the resource server side.
+          </li>
+          <li>Intent Token: This is the new JWT compatible token that contains the additional 
+            claims plus the agent specific identity information. 
+            (see <xref target="intent_token">Intent Token</xref>).
+          </li>
+        </ul>
+        <t>
+          All of the above mentioned architectural choices are fully backward compatible with 
+          OAuth 2.0.
+        </t>
+
+        <t>
+          The architecture components that make these features possible can be implemented using 
+          general purpose programming languages like python, nodejs, java etc. The exact logical 
+          component design is outlined below: 
+        </t>
+        <ul>
+          <li>Client Shim Library: Implements the client side logic that performs the tasks 
+            necessary for seamless minting of intent tokens, verifying agent registrations 
+            from IDP (or Authorization Server), and tracking runtime agent workflow so that 
+            workflow state can be used while requesting an intent token.
+          </li>
+          <li>Authorization Server Library: Implements the Authorization Server side validation 
+            logic for authenticating incoming client requests using agent_checksum authorization 
+            grant. 
+          </li>
+          <li>Resource Server Library: Implements the Resource Server side logic for token 
+            validation for intent tokens including per agent Proof-of-Posession verification.
+          </li>
+        </ul>
+      </section>
+
+      <section anchor="abstract_protocol_flow" title="Abstract Protocol Flow">
+        <t>
+          The Agentic JWT protocol flow is conceptually similar to that of OAuth 2.0 
+          <xref target="RFC6749"/> at high level. However, the internal structure and 
+          mechanism is different and encapsulates agentic aware protocol features.
+        </t> 
+
+        <figure anchor="agentic_jwt_protocol_flow" title="Agentic JWT Abstract Protocol Flow" align="center">
+
+          <artwork align="center"><![CDATA[ 
++----------------------+                                                    
+|                      |                                                    
+|        Client        |                                                    
+|                      |                                                    
+|  +----------------+  |                                 +-----------------+
+|  |                |  |           Agent Registration    |                 |
+|  |                +--+--(A)--------------------------->|    Resource     |
+|  |                |  |                                 |    Owner        |
+|  |                |  |                                 |                 |
+|  |                |<-+--(B)---Authorization-Grant------+                 |
+|  |                |  |        (agent_checksum)         +-----------------+
+|  |                |  |                                                    
+|  |                |  |                                                    
+|  |  Shim Library  |  |                                 +-----------------+
+|  |                +--+---(C)-----agent_checksum------->|                 |
+|  |                |  |                                 |                 |
+|  |                |  |                                 | Authorization   |
+|  |                |  |                                 |    Server       |
+|  |                |<-+--(D)------intent-token----------+                 |
+|  |                |  |        (with agent information) +-----------------+
+|  |                |  |                                                    
+|  |                |  |                                 +-----------------+
+|  |                +--+--(E)------intent-token--------->|                 |
+|  |                |  |                                 |   Resource      |
+|  |                |  |                                 |    Server       |
+|  |                |<-+--(F)----Protected-Resource------+                 |
+|  +----------------+  |                                 +-----------------+
++----------------------+                                                    
+
+Workflow: User → IDP → Intent Token → Agent → Access Token → API
+            ]]>
+          </artwork>
+        </figure>
+
+        <t>
+          The protocol flow described in Figure 1 outlines the interactions 
+          between the client (via Shim Library), the Resource Owner, the 
+          Authorization Server, and the Resource Server. This flow is fully 
+          compatible with the original OAuth 2.0 protocol flow. The complexities of 
+          verifying registered agents on the Client, capturing runtime 
+          identity of an agent for minting intent tokens, tracking runtime 
+          workflow and sending these to Authorization Server with the intent 
+          token request, are hidden inside the Shim Library. A Client application 
+          just needs to include the Shim library as a dependency to make this 
+          flow work. The protocol flow steps are described below: 
+        </t>
+
+        <ol type="(%C)">
+          <li>
+            The client makes an authorization grant request to the resource owner either 
+            directly or preferably via the authorization server. Having authorization 
+            grant means that each agent running within the client process has been 
+            registered as identity in the authorization server with an 
+            Agent Checksum (see <xref target="agent_checksum"></xref>) of its system prompt, 
+            tool specifications, and LLM configuration.
+          </li>
+          <li>
+            The client receives an authorization grant that can be used to request intent tokens 
+            from the authorization server. This is new authorization grant type called 
+            agent_checksum. The agent_checksum authorization grant is based on an 
+            agent's inherent signature used as its identity. An agent's signature comprises of its 
+            system prompt, tools specifications (or tool function code), and LLM configuration. 
+            This new grant type is described in <xref target="grant_type"/>
+          </li>
+          <li>
+            The shim library running within the client process requests an intent token by 
+            presenting the authorization grant of 'agent_checksum' which uses the currently running 
+            agent's signature as part of the input. The shim library computes the runtime Agent 
+            Checksum (see <xref target="agent_checksum"></xref> of the running agent and includes in 
+            the intent token request.
+          </li>
+          <li>
+            The authorization server validates the request against the registered agents, by 
+            comparing agent checksum in the input with regisrered checksums, and if valid, issues 
+            the intent token.
+          </li>
+          <li>
+            The shim library, running within the client process, requests the protected resource from 
+            the resource server by presenting the intent token for authentication and authorization 
+            information.
+          </li>
+          <li>
+            The resource server validates the intent token,and if valid, serves the request.
+          </li>
+        </ol>
+
+      </section>
+
+    </section>
+
+    <section anchor="grant_type" title="Agent Checksum Grant Type">
+        
+      <section anchor="grant_overview" title="Overview">
+        <t>
+          This specification defines a new OAuth 2.0 grant type for autonomous
+          AI agents: "agent_checksum". This grant type enables agents to obtain
+          access tokens (called intent tokens in context of this specification) 
+          by proving their identity through cryptographic checksum
+          verification rather than traditional client credentials.
+        </t>
+        
+        <t>
+          The grant type is designed specifically for agentic clients that:
+        </t>
+        
+        <ul>
+          <li>Have registered their agent checksum with the authorization server</li>
+          <li>Optionally execute pre-approved workflows with defined steps</li>
+          <li>Maintain delegation chains across multi-agent systems</li>
+          <li>Require proof-of-possession token binding</li>
+        </ul>
+        
+        <t>
+          Grant Type Identifier:
+        </t>
+        
+        <artwork><![CDATA[
+    urn:ietf:params:oauth:grant-type:agent_checksum
+        ]]></artwork>
+        
+        <t>
+          Note: For brevity in examples, this document uses the short form
+          "agent_checksum" instead of the full URN.
+        </t>
+      </section>
+      
+      <section anchor="grant_request" title="Token Request">
+        
+        <section anchor="grant_request_format" title="Request Format">
+          <t>
+            The client shim library (see <xref target="client_shim_library"/>), on behalf 
+            of an agent, makes a request to the token endpoint by sending the following 
+            parameters using the "application/json" format with a character encoding of 
+            UTF-8:
+          </t>
+          
+          <dl>
+            <dt>grant_type:</dt>
+            <dd>
+              REQUIRED. Value MUST be "agent_checksum" (or the full URN).
+            </dd>
+            
+            <dt>agent_id:</dt>
+            <dd>
+              REQUIRED. The unique identifier of the registered agent.
+            </dd>
+            
+            <dt>computed_checksum:</dt>
+            <dd>
+              REQUIRED. The SHA-256 checksum computed over the agent's current
+              configuration. Format: "sha256:&lt;hex&gt;".
+            </dd>
+            
+            <dt>workflow_id:</dt>
+            <dd>
+              REQUIRED when workflow_enabled is true. The identifier of the
+              registered workflow being executed.
+            </dd>
+            
+            <dt>workflow_step:</dt>
+            <dd>
+              REQUIRED when workflow_enabled is true. The identifier of the
+              specific workflow step being executed.
+            </dd>
+            
+            <dt>workflow_enabled:</dt>
+            <dd>
+              OPTIONAL. Boolean indicating whether workflow validation should
+              be enforced. Default: false.
+            </dd>
+            
+            <dt>requested_scopes:</dt>
+            <dd>
+              REQUIRED. Array of OAuth 2.0 scopes requested for this token.
+            </dd>
+            
+            <dt>audience:</dt>
+            <dd>
+              REQUIRED. The intended audience (resource server) for the token.
+              May be a single string or array of strings.
+            </dd>
+            
+            <dt>delegation_context:</dt>
+            <dd>
+              OPTIONAL. Object containing delegation chain information for
+              multi-agent workflows. Contains "chain" (array of parent agent_ids)
+              and "completed_steps" (array of completed workflow step identifiers).
+            </dd>
+          </dl>
+        </section>
+        
+        <section anchor="grant-request-example" title="Request Example">
+          <t>
+            Example HTTP request (with line breaks for readability):
+          </t>
+          
+          <sourcecode type="http"><![CDATA[
+    POST /intent/token HTTP/1.1
+    Host: idp.example.com
+    Content-Type: application/json
+    Authorization: Bearer <admin_token>
+
+    {
+      "grant_type": "agent_checksum",
+      "agent_id": "vulnerability-patcher-v1",
+      "computed_checksum": "sha256:a3c7f2e8d9b4f1e2c8a7d6f3e9b2c4f1...",
+      "workflow_id": "auto-patch-workflow-v1",
+      "workflow_step": "step_3_patch_application",
+      "workflow_enabled": true,
+      "requested_scopes": [
+        "repo:write",
+        "vulnerability:read"
+      ],
+      "audience": "https://api.github.com",
+      "delegation_context": {
+        "chain": [
+          "supervisor-agent",
+          "planner-agent",
+          "vulnerability-patcher-v1"
+        ],
+        "completed_steps": [
+          "step_1_analyze_manifest",
+          "step_2_create_patch_plan"
+        ]
+      }
+    }
+          ]]></sourcecode>
+        </section>
+        
+        <section anchor="grant-request-authentication" title="Request Authentication">
+          <t>
+            The token endpoint MUST be protected. In the reference implementation,
+            requests require an Authorization header with a bearer token that
+            has the "generate:intent-token" scope and audience "idp.localhost". This token 
+            may well be the usual JWT client level access token that uses one of the 
+            traditional OAuth 2.0 Authorization Grants <xref target="RFC6749"/>.
+          </t>
+          
+          <t>
+            Implementations MAY use different authentication mechanisms (e.g.,
+            client credentials, mutual TLS) but MUST ensure that only authorized
+            entities can request tokens on behalf of agents.
+          </t>
+        </section>
+      </section>
+      
+      <section anchor="grant_processing" title="Authorization Server Processing">
+        
+        <section anchor="grant-validation-sequence" title="Validation Sequence">
+          <t>
+            Upon receiving a token request, the authorization server MUST
+            perform the following validation steps IN ORDER:
+          </t>
+          
+          <ol spacing="normal">
+            <li>
+              <strong>Grant Type Validation:</strong>
+              
+              Verify that grant_type equals "agent_checksum".
+              
+              If invalid → Return error "unsupported_grant_type" (<xref target="grant_error_unsupported"/>)  
+            </li>
+            
+            <li>
+              <strong>Agent Existence Check:</strong>
+              
+              Verify that agent_id exists in the agent registry.
+              
+              If not found → Return error "unknown_agent" 
+              (<xref target="grant_error_unknown_agent"/>)
+            </li>
+            
+            <li>
+              <strong>Checksum Verification:</strong>
+              
+              Retrieve the registered checksum for agent_id.
+              
+              Compare computed_checksum with the stored checksum.
+              
+              If mismatch → Return error "agent_checksum_mismatch" 
+              (<xref target="grant_error_checksum_mismatch"/>)
+            </li>
+            
+            <li>
+              <strong>Workflow Step Authorization (if workflow_enabled):</strong>
+              
+              Validate that the agent is authorized to execute the specified
+              workflow_step within workflow_id.
+              
+              Verify prerequisite steps are completed (from delegation_context).
+              
+              Check approval requirements if step requires approval.
+              
+              If unauthorized → Return error "workflow_step_unauthorized" (<xref target="grant_error_workflow_unauthorized"/>
+            </li>
+            
+            <li>
+              <strong>Token Creation:</strong>
+              
+              If all validations pass, create and sign the intent token
+              (<xref target="intent_token"/>).
+            </li>
+          </ol>
+        </section>
+        
+        <section anchor="grant-checksum-verification" title="Checksum Verification Details">
+          <t>
+            For the checksum verification procedure please see <xref target="verification_server_side"/>
+          </t>          
+        </section>
+        
+        <section anchor="grant-workflow-validation" title="Workflow Step Validation">
+          <t>
+            When workflow_enabled is true, the authorization server MUST
+            validate the workflow execution state:
+          </t>
+          
+          <ol spacing="normal">
+            <li>
+              Verify that workflow_id exists in the workflow registry
+            </li>
+            
+            <li>
+              Verify that workflow_step exists within the workflow definition
+            </li>
+            
+            <li>
+              <t>
+                Check that all required prerequisite steps have been completed:
+              </t>
+              <ul spacing="normal">
+                <li>
+                  Retrieve the step definition for workflow_step
+                </li>
+                <li>
+                  Identify all steps marked as "required" that appear before
+                  workflow_step in the workflow sequence
+                </li>
+                <li>
+                  Verify all required steps are present in
+                  delegation_context.completed_steps
+                </li>
+              </ul>
+            </li>
+            
+            <li>
+              <t>
+                If the step has requires_approval=true:
+              </t>
+              <ul spacing="normal">
+                <li>
+                  Locate the most recent approval gate step before workflow_step
+                </li>
+                <li>
+                  Verify that approval gate step is in completed_steps
+                </li>
+                <li>
+                  If no approval gate found or not completed → reject request
+                </li>
+              </ul>
+            </li>
+          </ol>
+          
+          <t>
+            This validation ensures that agents cannot skip required steps or
+            bypass approval gates in multi-step workflows.
+          </t>
+        </section>
+        
+        <section anchor="grant-delegation-chain" title="Delegation Chain Validation">
+          <t>
+            If delegation_context is provided, the authorization server SHOULD
+            validate the delegation chain:
+          </t>
+          
+          <ul>
+            <li>
+              Verify that all agents in the chain are registered
+            </li>
+            <li>
+              Verify that the chain represents a valid delegation path
+              (parent agents authorized the delegation)
+            </li>
+            <li>
+              Verify that the requesting agent is the last element in the chain
+            </li>
+          </ul>
+          
+          <t>
+            The delegation_context.chain array represents the delegation
+            hierarchy from the original initiating agent to the current agent.
+            For example: ["supervisor", "planner", "patcher"] indicates that
+            the supervisor delegated to the planner, which delegated to the patcher.
+          </t>
+        </section>
+      </section>
+      
+      <section anchor="grant_response" title="Successful Response">
+        
+        <section anchor="grant-response-format" title="Response Format">
+          <t>
+            If the request is valid and all verification checks pass, the
+            authorization server issues an intent token and returns it in
+            the response:
+          </t>
+          
+          <sourcecode type="http"><![CDATA[
+    HTTP/1.1 200 OK
+    Content-Type: application/json
+    Cache-Control: no-store
+    Pragma: no-cache
+
+    {
+      "access_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6...",
+      "token_type": "Bearer",
+      "expires_in": 300,
+      "scope": "repo:write vulnerability:read"
+    }
+          ]]></sourcecode>
+          
+          <t>
+            Response fields:
+          </t>
+          
+          <dl>
+            <dt>access_token:</dt>
+            <dd>
+              REQUIRED. The intent token encoded as a JWT.
+            </dd>
+            
+            <dt>token_type:</dt>
+            <dd>
+              REQUIRED. MUST be "Bearer".
+            </dd>
+            
+            <dt>expires_in:</dt>
+            <dd>
+              RECOMMENDED. Lifetime in seconds. For intent tokens, this
+              SHOULD be short (e.g., 300 seconds / 5 minutes).
+            </dd>
+            
+            <dt>scope:</dt>
+            <dd>
+              OPTIONAL. Space-delimited list of scopes granted. MAY differ
+              from requested_scopes if authorization server applies restrictions.
+            </dd>
+          </dl>
+        </section>
+        
+        <section anchor="grant_token_structure" title="Intent Token Structure">
+          <t>
+            The intent token is a JWT <xref target="RFC7519"/> with the
+            following claims:
+          </t>
+          
+          <t>
+            <strong>Standard JWT Claims:</strong>
+          </t>
+          
+          <dl>
+            <dt>iss (Issuer):</dt>
+            <dd>
+              REQUIRED. Authorization server identifier.
+            </dd>
+            
+            <dt>aud (Audience):</dt>
+            <dd>
+              REQUIRED. Intended recipient(s). Value from request.audience.
+            </dd>
+            
+            <dt>sub (Subject):</dt>
+            <dd>
+              REQUIRED. Agent identifier (request.agent_id).
+            </dd>
+            
+            <dt>exp (Expiration):</dt>
+            <dd>
+              REQUIRED. Token expiration time (Unix timestamp).
+              SHOULD be iat + 300 seconds for intent tokens.
+            </dd>
+            
+            <dt>iat (Issued At):</dt>
+            <dd>
+              REQUIRED. Token issuance time (Unix timestamp).
+            </dd>
+            
+            <dt>jti (JWT ID):</dt>
+            <dd>
+              REQUIRED. Unique token identifier for replay prevention.
+            </dd>
+            
+            <dt>scope:</dt>
+            <dd>
+              REQUIRED. Space-delimited OAuth 2.0 scopes.
+            </dd>
+          </dl>
+          
+          <t>
+            <strong>Proof-of-Possession Claim:</strong>
+          </t>
+          
+          <dl>
+            <dt>cnf (Confirmation):</dt>
+            <dd>
+              REQUIRED. Proof-of-possession confirmation as defined in
+              RFC 7800 <xref target="RFC7800"/>. Contains "jwk" field with
+              the agent's public key in JWK format.
+            </dd>
+          </dl>
+          
+          <t>
+            <strong>Intent-Specific Claims (nested under "intent" object):</strong>
+          </t>
+          
+          <dl>
+            <dt>workflow_id:</dt>
+            <dd>
+              REQUIRED when workflow_enabled. Workflow identifier.
+            </dd>
+            
+            <dt>workflow_step:</dt>
+            <dd>
+              REQUIRED when workflow_enabled. Current step identifier.
+            </dd>
+            
+            <dt>executed_by:</dt>
+            <dd>
+              REQUIRED. Agent executing this step (same as sub).
+            </dd>
+            
+            <dt>delegation_chain:</dt>
+            <dd>
+              REQUIRED. Cryptographic hash of the delegation sequence.
+              Computed as SHA-256 over the pipe-delimited chain of agent_ids,
+              truncated to 16 hex characters. See <xref target="grant_sequence_hash"/>
+            </dd>
+            
+            <dt>step_sequence_hash:</dt>
+            <dd>
+              REQUIRED. Cryptographic hash of completed workflow steps.
+              Computed as SHA-256 over pipe-delimited completed step IDs,
+              truncated to 16 hex characters. See <xref target="grant_sequence_hash"/>
+            </dd>
+          </dl>
+          
+          <t>
+            <strong>Agent Proof Claims (nested under "agent_proof" object):</strong>
+          </t>
+          
+          <dl>
+            <dt>agent_checksum:</dt>
+            <dd>
+              REQUIRED. The verified agent checksum (from request.computed_checksum). See 
+              <xref target="agent_identity"/> for detailed agent identity and checksum
+              analysis.
+            </dd>
+            
+            <dt>registration_id:</dt>
+            <dd>
+              REQUIRED. The registration identifier from the agent registry,
+              enabling token revocation at the registration level.
+            </dd>
+          </dl>
+        </section>
+        
+        <section anchor="grant-token-example" title="Token Example">
+          <t>
+            Example decoded intent token payload:
+          </t>
+          
+          <sourcecode type="json"><![CDATA[
+    {
+      "iss": "https://idp.example.com",
+      "aud": "https://api.github.com",
+      "sub": "vulnerability-patcher-v1",
+      "exp": 1735690800,
+      "iat": 1735690500,
+      "jti": "token_a3f7e89c",
+      "scope": "repo:write vulnerability:read",
+      "cnf": {
+        "jwk": {
+          "kty": "RSA",
+          "use": "sig",
+          "alg": "RS256",
+          "n": "xGOr-H7A-PWi...",
+          "e": "AQAB"
+        }
+      },
+      "intent": {
+        "workflow_id": "auto-patch-workflow-v1",
+        "workflow_step": "step_3_patch_application",
+        "executed_by": "vulnerability-patcher-v1",
+        "delegation_chain": "f3e8d9c7b2a41a3c",
+        "step_sequence_hash": "a7c9e2f4b8d61c3f"
+      },
+      "agent_proof": {
+        "agent_checksum": "sha256:a3c7f2e8d9b4f1e2c8a7d6f3e9b2c4f1...",
+        "registration_id": "reg_vulnerability-patcher-v1_1735680000"
+      }
+    }
+          ]]></sourcecode>
+        </section>
+        
+        <section anchor="grant_sequence_hash" title="Sequence Hash Computation">
+          <t>
+            The delegation_chain and step_sequence_hash provide cryptographic
+            integrity over the workflow execution path:
+          </t>
+          
+          <t>
+            <strong>Delegation Chain Hash:</strong>
+          </t>
+          
+          <sourcecode><![CDATA[
+    # Input: delegation_context.chain + current agent_id
+    chain = ["supervisor", "planner", "patcher"]
+    chain_string = "supervisor|planner|patcher"
+    hash = SHA256(chain_string.encode('utf-8'))
+    delegation_chain = hash.hexdigest()[:16]
+    # Result: "f3e8d9c7b2a41a3c"
+          ]]></sourcecode>
+          
+          <t>
+            <strong>Step Sequence Hash:</strong>
+          </t>
+          
+          <sourcecode><![CDATA[
+    # Input: delegation_context.completed_steps + current step
+    steps = ["step_1_analyze", "step_2_plan", "step_3_patch"]
+    steps_string = "step_1_analyze|step_2_plan|step_3_patch"
+    hash = SHA256(steps_string.encode('utf-8'))
+    step_sequence_hash = hash.hexdigest()[:16]
+    # Result: "a7c9e2f4b8d61c3f"
+          ]]></sourcecode>
+          
+          <t>
+            If an agent has skipped steps or altered the delegation chain, the IDP side library 
+            will be able to detect during intent token request. However, including these hashes 
+            in the intent token additionally enables resource servers to detect if an agent
+            has skipped steps or altered the delegation chain.
+          </t>
+        </section>
+      </section>
+      
+      <section anchor="grant_errors" title="Error Responses">
+        
+        <section anchor="grant-error-format" title="Error Response Format">
+          <t>
+            Error responses follow the OAuth 2.0 error response format
+            defined in Section 5.2 of RFC 6749 <xref target="RFC6749"/>:
+          </t>
+          
+          <sourcecode type="http"><![CDATA[
+    HTTP/1.1 400 Bad Request
+    Content-Type: application/json
+    Cache-Control: no-store
+    Pragma: no-cache
+
+    {
+      "error": "agent_checksum_mismatch",
+      "error_description": "Agent checksum mismatch - code integrity violation",
+      "error_uri": "https://idp.example.com/docs/errors#checksum_mismatch"
+    }
+          ]]></sourcecode>
+        </section>
+        
+        <section anchor="grant_error_unsupported" title="unsupported_grant_type">
+          <t>
+            Error Code: <tt>unsupported_grant_type</tt>
+          </t>
+          
+          <t>
+            HTTP Status: 400 Bad Request
+          </t>
+          
+          <t>
+            Description: The grant_type parameter does not equal "agent_checksum".
+          </t>
+          
+          <t>
+            Example:
+          </t>
+          
+          <sourcecode type="json"><![CDATA[
+    {
+      "error": "unsupported_grant_type",
+      "error_description": "Grant type must be 'agent_checksum'"
+    }
+          ]]></sourcecode>
+        </section>
+        
+        <section anchor="grant_error_unknown_agent" title="unknown_agent">
+          <t>
+            Error Code: <tt>unknown_agent</tt>
+          </t>
+          
+          <t>
+            HTTP Status: 401 Unauthorized
+          </t>
+          
+          <t>
+            Description: The agent_id is not registered with the authorization server.
+          </t>
+          
+          <t>
+            Recommended Action: Agent must complete registration (Section 6.1)
+            before requesting tokens.
+          </t>
+          
+          <t>
+            Example:
+          </t>
+          
+          <sourcecode type="json"><![CDATA[
+    {
+      "error": "unknown_agent",
+      "error_description": "Agent ID not found in registry. Register first."
+    }
+          ]]></sourcecode>
+        </section>
+        
+        <section anchor="grant_error_checksum_mismatch" title="agent_checksum_mismatch">
+          <t>
+            Error Code: <tt>agent_checksum_mismatch</tt>
+          </t>
+          
+          <t>
+            HTTP Status: 401 Unauthorized
+          </t>
+          
+          <t>
+            Description: The computed_checksum does not match the registered
+            checksum for the agent_id. This indicates that the agent's
+            configuration (prompt, tools, or model parameters) has been modified
+            since registration.
+          </t>
+          
+          <t>
+            Security Implication: This is a critical security error that may
+            indicate:
+          </t>
+          
+          <ul>
+            <li>Unauthorized modification of the agent</li>
+            <li>Attempted impersonation attack</li>
+            <li>Code integrity violation</li>
+          </ul>
+          
+          <t>
+            Recommended Action: Agent must re-register with updated checksum
+            before requesting tokens. Authorization server SHOULD log this
+            event for security monitoring.
+          </t>
+          
+          <t>
+            Example:
+          </t>
+          
+          <sourcecode type="json"><![CDATA[
+    {
+      "error": "agent_checksum_mismatch",
+      "error_description": "Agent checksum mismatch - code integrity violation",
+      "error_uri": "https://idp.example.com/docs/errors#checksum_mismatch"
+    }
+          ]]></sourcecode>
+        </section>
+        
+        <section anchor="grant_error_workflow_unauthorized" title="workflow_step_unauthorized">
+          <t>
+            Error Code: <tt>workflow_step_unauthorized</tt>
+          </t>
+          
+          <t>
+            HTTP Status: 403 Forbidden
+          </t>
+          
+          <t>
+            Description: The agent is not authorized to execute the specified
+            workflow_step. This may occur when:
+          </t>
+          
+          <ul>
+            <li>Prerequisite steps have not been completed</li>
+            <li>Required approval gate has not been passed</li>
+            <li>Step is not defined in the workflow</li>
+            <li>Agent is not assigned to this workflow step</li>
+          </ul>
+          
+          <t>
+            Recommended Action: Review workflow definition and ensure all
+            required prerequisites are met.
+          </t>
+          
+          <t>
+            Example:
+          </t>
+          
+          <sourcecode type="json"><![CDATA[
+    {
+      "error": "workflow_step_unauthorized",
+      "error_description": "Agent not authorized for workflow step. 
+                            Required prerequisite steps not completed.",
+      "missing_steps": ["step_1_analyze_manifest", "step_2_approval_gate"]
+    }
+          ]]></sourcecode>
+        </section>
+        
+        <section anchor="grant_error_invalid_request" title="invalid_request">
+          <t>
+            Error Code: <tt>invalid_request</tt>
+          </t>
+          
+          <t>
+            HTTP Status: 400 Bad Request
+          </t>
+          
+          <t>
+            Description: The request is malformed or missing required parameters.
+            Common causes:
+          </t>
+          
+          <ul>
+            <li>Missing required fields (agent_id, computed_checksum, etc.)</li>
+            <li>Invalid JSON format</li>
+            <li>workflow_enabled=true but workflow_id/workflow_step missing</li>
+            <li>Invalid checksum format (must be "sha256:&lt;hex&gt;")</li>
+          </ul>
+          
+          <t>
+            Example:
+          </t>
+          
+          <sourcecode type="json"><![CDATA[
+    {
+      "error": "invalid_request",
+      "error_description": "Missing required parameter: computed_checksum"
+    }
+          ]]></sourcecode>
+        </section>
+      </section>
+      
+      <section anchor="grant_security" title="Auth Grant Security Considerations">
+        <t>
+          For grant type specific security considerations, see:
+        </t>
+        <ul>
+          <li>Checksum verification: <xref target="checksum_verification_security"/></li>
+          <li>Token lifetime: Section <xref target="token_lifetime"/></li>
+          <li>Workflow validation: <xref target="sec_workflow"/></li>
+        </ul>
+        <t>
+          For comprehensive security analysis, see <xref target="security_considerations"/>.
+        </t>
+      </section>
+      
+      <section anchor="grant_implementation-notes" title="Implementation Notes">
+        
+        <section anchor="grant-impl-registry" title="Agent Registry">
+          <t>
+            The authorization server maintains an agent registry mapping
+            agent_id to registration records. Each record contains:
+          </t>
+          
+          <ul>
+            <li>agent_id - Unique identifier</li>
+            <li>checksum - SHA-256 agent checksum</li>
+            <li>registration_id - Unique registration instance ID</li>
+            <li>public_key - Agent's public key (for cnf claim)</li>
+            <li>registered_at - Registration timestamp</li>
+            <li>version - Registration version (for checksum updates)</li>
+          </ul>
+          
+          <t>
+            Multiple registrations may exist for the same agent_id when
+            the agent's configuration changes. The authorization server
+            uses the LATEST registration for verification.
+          </t>
+        </section>
+        
+        <section anchor="grant-impl-workflow-registry" title="Workflow Registry">
+          <t>
+            The workflow registry stores workflow definitions including:
+          </t>
+          
+          <ul>
+            <li>workflow_id - Unique workflow identifier</li>
+            <li>steps - Ordered array of workflow step definitions</li>              
+          </ul>
+
+          <t>Each step contains: </t>
+          <ul spacing="normal">
+            <li>step_id - Unique step identifier</li>
+            <li>required - Boolean indicating if step is required</li>
+            <li>requires_approval - Boolean for approval requirement</li>
+            <li>approval_gate - Boolean marking this step as approval gate</li>
+            <li>agent_id - Agent authorized to execute this step (optional)</li>
+          </ul>
+        </section>
+        
+        <section anchor="grant-impl-performance" title="Performance Considerations">
+          <t>
+            The checksum verification and workflow validation add overhead
+            to token issuance. Implementations SHOULD:
+          </t>
+          
+          <ul>
+            <li>
+              Cache agent registry lookups to reduce database queries
+            </li>
+            <li>
+              Use indexed database queries on agent_id for fast lookup
+            </li>
+            <li>
+              Pre-compute workflow step dependencies to speed validation
+            </li>
+            <li>
+              Implement connection pooling for registry data stores
+            </li>
+          </ul>
+          
+          <t>
+            The reference implementation shows ~4.3% overhead compared to
+            standard OAuth 2.0 token issuance, which is acceptable for
+            most production deployments.
+          </t>
+        </section>
+      </section>
+      
+    </section>
+
+    <section anchor="agent_identity" title="Agent Identity">
+      
+      <section anchor="identity_overview" title="Overview">
+        <t>
+          Agent identity in this specification is based on cryptographic
+          checksums computed over an agent's configuration. Unlike traditional
+          client credentials that can be shared or stolen, the agent checksum
+          provides a unique cryptographic fingerprint of the agent's actual
+          implementation.
+        </t>
+        
+        <t>
+          The agent checksum serves three critical functions:
+        </t>
+        
+        <ul spacing="normal">
+          <li>
+            <strong>Identity Verification:</strong> Proves that an agent's
+            configuration matches what was registered with the authorization server
+          </li>
+          <li>
+            <strong>Code Integrity:</strong> Detects unauthorized modifications
+            to the agent's system prompt, tools, or configuration
+          </li>
+          <li>
+            <strong>Non-Transferability:</strong> Prevents credentials from being
+            reused by different agent implementations
+          </li>
+        </ul>
+        
+        <t>
+          This section defines how agent identity is established, verified,
+          and maintained throughout the agent lifecycle.
+        </t>
+      </section>
+      
+      <section anchor="agent_configuration" title="Agent Configuration Structure">
+        
+        <section anchor="agent-spec" title="Agent Specification">
+          <t>
+            An agent's identity is derived from its specification, which
+            includes all components that define the agent's behavior:
+          </t>
+          
+          <dl spacing="normal" newline="true">
+            <dt>agent_id:</dt>
+            <dd>
+              REQUIRED. Unique identifier for the agent. MUST be unique within
+              the application scope. Format: alphanumeric with hyphens, 
+              e.g., "vulnerability-patcher-v1".
+            </dd>
+            
+            <dt>prompt:</dt>
+            <dd>
+              REQUIRED. The complete system prompt that defines the agent's
+              role, capabilities, and constraints. This is the full text
+              provided to the language model that shapes agent behavior.
+            </dd>
+            
+            <dt>tools:</dt>
+            <dd>
+              REQUIRED. Array of tool definitions available to the agent.
+              Each tool includes name, description, and parameter schema.
+              The order of tools MUST be deterministic.
+            </dd>
+            
+            <dt>configuration:</dt>
+            <dd>
+              <t>OPTIONAL. Additional configuration parameters including:</t>              
+              <ul spacing="normal">
+                <li>model_name - Language model identifier</li>
+                <li>temperature - Sampling temperature (0.0-1.0)</li>
+                <li>max_tokens - Maximum generation length</li>
+                <li>top_p - Nucleus sampling parameter</li>
+              </ul>
+            </dd>
+          </dl>
+        </section>
+        
+        <section anchor="agent-spec-example" title="Example Agent Specification">
+          <t>
+            Example agent specification for a vulnerability patching agent:
+          </t>
+          
+          <sourcecode type="json"><![CDATA[
+    {
+      "agent_id": "vulnerability-patcher-v1",
+      "prompt": "You are a security agent responsible for patching 
+                vulnerabilities in software dependencies. Analyze 
+                manifests, identify vulnerable packages, and generate 
+                patches. Always verify changes before committing.",
+      "tools": [
+        {
+          "name": "read_manifest",
+          "description": "Read package manifest file",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "file_path": {"type": "string"}
+            },
+            "required": ["file_path"]
+          }
+        },
+        {
+          "name": "check_vulnerability",
+          "description": "Check package for known vulnerabilities",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "package": {"type": "string"},
+              "version": {"type": "string"}
+            },
+            "required": ["package", "version"]
+          }
+        },
+        {
+          "name": "create_patch",
+          "description": "Create patch for vulnerable package",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "package": {"type": "string"},
+              "current_version": {"type": "string"},
+              "target_version": {"type": "string"}
+            },
+            "required": ["package", "current_version", "target_version"]
+          }
+        }
+      ],
+      "configuration": {
+        "model_name": "claude-3-5-sonnet-20241022",
+        "temperature": 0.0,
+        "max_tokens": 4096
+      }
+    }
+          ]]></sourcecode>
+        </section>
+        
+        <section anchor="tool-checksums" title="Tool Checksum Levels">
+          <t>
+            Tools may be included in the checksum computation at two levels:
+          </t>
+          
+          <dl spacing="normal">
+            <dt>Shallow (Default):</dt>
+            <dd>
+              Only the tool signature (name, description, parameters) is
+              included in the checksum. The actual function implementation
+              is not hashed. This allows tool implementation to evolve
+              without requiring re-registration.
+            </dd>
+            
+            <dt>Deep:</dt>
+            <dd>
+              The complete tool implementation, including normalized function
+              source code, is included in the checksum. This provides stronger
+              integrity guarantees but requires re-registration for any code changes.
+            </dd>
+          </dl>
+          
+          <t>
+            Implementations MUST support shallow checksums. Deep checksums
+            are OPTIONAL and MAY be indicated through tool metadata.
+          </t>
+          
+          <t>
+            In the reference implementation, tools are marked for deep
+            checksumming using a decorator:
+          </t>
+          
+          <sourcecode type="python"><![CDATA[
+    @secure_tool(name="critical_operation", checksum_level=ChecksumLevel.deep)
+    def critical_operation(params):
+        # Tool implementation included in checksum
+        pass
+          ]]></sourcecode>
+          
+          <t>
+            When including source code in deep checksums, implementations
+            MUST normalize the source code to ensure formatting changes do
+            not affect checksums while logic changes are always detected.
+          </t>
+        </section>
+        
+        <section anchor="tool-signature-normalization" title="Tool Signature Normalization">
+          <t>
+            Tool function signatures MUST be normalized to remove framework-specific
+            wrapper parameters that do not affect agent behavior. This ensures
+            that checksums remain stable across different agent frameworks.
+          </t>
+          
+          <t>
+            <strong>Wrapper Parameters to Remove:</strong>
+          </t>
+          
+          <ul spacing="normal">
+            <li>config - Framework configuration object</li>
+            <li>callbacks - Callback handlers</li>
+            <li>run_manager - Execution manager</li>
+            <li>tags - Execution tags</li>
+            <li>metadata - Execution metadata</li>
+            <li>run_id - Execution identifier</li>
+            <li>**kwargs - Catchall for framework parameters</li>
+          </ul>
+          
+          <t>
+            Reference implementation for signature normalization:
+          </t>
+          
+          <sourcecode type="python"><![CDATA[
+    import inspect
+
+    def get_core_signature(func) -> str:
+        """
+        Get function signature with wrapper parameters removed.
+        """
+        # Unwrap decorators to get original function
+        current = func
+        try:
+            current = inspect.unwrap(func)
+        except (ValueError, AttributeError):
+            pass
+        
+        sig = inspect.signature(current)
+        
+        # Known wrapper parameters to filter out
+        WRAPPER_PARAMS = {
+            'config', 'callbacks', 'run_manager', 'tags', 'metadata',
+            'run_id', 'parent_run_id', 'configurable', 'recursion_limit'
+        }
+        
+        # Build cleaned parameter list
+        cleaned_params = []
+        
+        for name, param in sig.parameters.items():
+            # Skip known wrapper params
+            if name in WRAPPER_PARAMS:
+                continue
+            
+            # Skip VAR_KEYWORD (**kwargs) if it looks like wrapper catchall
+            if param.kind == inspect.Parameter.VAR_KEYWORD:
+                continue
+            
+            # Skip VAR_POSITIONAL (*args) used by wrappers
+            if param.kind == inspect.Parameter.VAR_POSITIONAL and name == 'args':
+                continue
+            
+            cleaned_params.append(param)
+        
+        # Create new signature
+        new_sig = inspect.Signature(
+            cleaned_params,
+            return_annotation=sig.return_annotation
+        )
+        
+        return str(new_sig)
+          ]]></sourcecode>
+          
+          <t>
+            This normalization is CRITICAL for cross-framework compatibility.
+            Without it, the same logical tool would have different checksums
+            when used in LangChain <xref target="LANGCHAIN"/> vs CrewAI <xref target="CREWAI"/> vs other frameworks. 
+            <xref target="LANGGRAPH"/>
+          </t>
+        </section>
+        
+        <section anchor="source-code-normalization" title="Source Code Normalization">
+          <t>
+            For deep checksum tools that include source code, implementations
+            MUST normalize the source code using Abstract Syntax Tree (AST)
+            parsing. This ensures that formatting changes do not affect checksums
+            while any logic changes are always detected.
+          </t>
+          
+          <t>
+            Normalization process:
+          </t>
+          
+          <ol spacing="normal">
+            <li>Parse source code to AST (Abstract Syntax Tree)</li>
+            <li>Remove docstrings (captured separately in tool description)</li>
+            <li>Remove comments (not part of execution logic)</li>
+            <li>Unparse AST to canonical form</li>
+          </ol>
+          
+          <t>
+            Reference implementation:
+          </t>
+          
+          <sourcecode type="python"><![CDATA[
+    import ast
+    import textwrap
+    import inspect
+
+    def remove_docstrings(tree: ast.AST) -> None:
+        """
+        Remove docstring nodes from AST in-place.
+        
+        Docstrings are captured separately in tool description,
+        so we remove them from implementation to avoid duplication.
+        """
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, 
+                                ast.ClassDef, ast.Module)):
+                if (node.body and 
+                    isinstance(node.body[0], ast.Expr) and
+                    isinstance(node.body[0].value, ast.Constant) and
+                    isinstance(node.body[0].value.value, str)):
+                    # This is a docstring - remove it
+                    node.body = node.body[1:] if len(node.body) > 1 else [ast.Pass()]
+
+    def normalize_source(source_code: str) -> str:
+        """
+        Normalize Python source code using AST.
+        
+        This ensures that formatting changes don't affect checksums
+        while logic changes are always detected.
+        
+        Strips:
+            - Comments (not part of execution logic)
+            - Formatting differences (whitespace, indentation)
+            - Docstrings (captured separately in checksum)
+        
+        Preserves:
+            - All execution logic
+            - Variable names (semantically significant)
+            - Control flow structures
+            - Function calls and their arguments
+        """
+        # Remove leading indentation
+        source = textwrap.dedent(source_code)
+        
+        try:
+            # Parse to AST
+            tree = ast.parse(source)
+            
+            # Remove docstrings
+            remove_docstrings(tree)
+            
+            # Unparse to canonical form
+            normalized = ast.unparse(tree)
+            
+            return normalized
+            
+        except SyntaxError:
+            # If code has syntax errors, return as-is
+            # This will cause checksum mismatch (correct behavior)
+            return source
+
+    def get_tool_source_code(func: callable) -> str | None:
+        """
+        Get normalized source code for a tool function.
+        Returns None if source cannot be retrieved.
+        """
+        try:
+            source = inspect.getsource(func)
+            normalized = normalize_source(source)
+            return normalized
+        except (OSError, TypeError):
+            return None
+          ]]></sourcecode>
+          
+          <t>
+            This normalization means:
+          </t>
+          
+          <ul spacing="normal">
+            <li>
+              <strong>SAME checksum:</strong> Reformatting code, adding comments,
+              changing indentation
+            </li>
+            <li>
+              <strong>DIFFERENT checksum:</strong> Changing logic, adding/removing
+              statements, modifying control flow
+            </li>
+          </ul>
+          
+          <t>
+            Example demonstrating normalization:
+          </t>
+          
+          <sourcecode type="python"><![CDATA[
+    # These produce IDENTICAL checksums after normalization:
+
+    def example1(x):
+        # This is a comment
+        return x + 1
+
+    def example1(x): return x+1  # inline
+
+    def example1(x):
+        """Docstring here"""
+        return x + 1
+
+
+    # This produces DIFFERENT checksum:
+
+    def example1(x):
+        return x + 2  # Logic changed
+          ]]></sourcecode>
+        </section>
+      </section>
+      
+      <section anchor="checksum_computation" title="Checksum Computation">
+        
+        <section anchor="checksum-algorithm" title="Computation Algorithm">
+          <t>
+            The agent checksum MUST be computed as follows:
+          </t>
+          
+          <ol spacing="normal">
+            <li>
+              <t>
+                <strong>Construct Agent Components Object:</strong>
+                Create a JSON object containing the agent's configuration:              
+              </t>              
+              <sourcecode type="json"><![CDATA[
+    {
+      "agent_id": "string",
+      "prompt_template": "string",
+      "tools": [
+        {
+          "name": "string",
+          "description": "string",
+          "parameters": { /* JSON schema */ }
+        }
+      ],
+      "configuration": {
+        "model_name": "string",
+        "temperature": number,
+        "max_tokens": number
+      }
+    }
+              ]]></sourcecode>
+            </li>
+            
+            <li>
+              <t>
+                <strong>Canonicalize JSON:</strong>
+                Serialize the object using RFC 8785 <xref target="RFC8785"/>
+                JSON Canonicalization Scheme (JCS). This ensures deterministic
+                ordering of keys and consistent formatting.
+              </t>              
+              
+              <t>
+                Canonical serialization is REQUIRED because:
+              </t>
+              <ul spacing="normal">
+                <li>JSON objects have no inherent key ordering</li>
+                <li>Whitespace and formatting vary across implementations</li>
+                <li>Floating point precision may differ</li>
+                <li>Unicode escaping can be inconsistent</li>
+              </ul>
+            </li>
+            
+            <li>
+              <strong>Compute SHA-256 Hash:</strong>
+              Hash the canonical JSON bytes using SHA-256 as defined in
+              FIPS 180-4 <xref target="FIPS-180-4"/>.
+            </li>
+            
+            <li>
+              <t>
+                <strong>Format Checksum:</strong>
+                Encode the hash as lowercase hexadecimal (64 characters):
+              </t>              
+              <artwork><![CDATA[
+    checksum = hex(hash_bytes).lowercase()
+    # Result: "a3c7f2e8d9b4f1e2c8a7d6f3e9b2c4f1a8e7d3c2b5f4e9..."
+              ]]></artwork>
+              <t>
+                Note: The reference implementation uses bare hex encoding.
+                Implementations MAY prefix with "sha256:" for explicit
+                algorithm identification.
+              </t>
+            </li>
+          </ol>
+        </section>
+        
+        <section anchor="checksum-implementation" title="Implementation Guidance">
+          <t>
+            Implementations MUST ensure checksum computation is deterministic
+            across different platforms, languages, and runtime environments.
+          </t>
+          
+          <t>
+            <strong>Reference Implementation (Python):</strong>
+          </t>
+          
+          <sourcecode type="python"><![CDATA[
+    import hashlib
+    import json
+
+    def normalize_prompt(prompt: str) -> str:
+        """
+        Normalize prompt string for consistent checksum computation.
+        Apply this in BOTH client and server-side computation.
+        """
+        if not prompt:
+            return ""
+        
+        # 1. Strip leading/trailing whitespace
+        normalized = prompt.strip()
+        
+        # 2. Normalize line endings (Windows \r\n vs Unix \n)
+        normalized = normalized.replace('\r\n', '\n')
+        
+        # 3. Collapse multiple consecutive newlines into single newline
+        import re
+        normalized = re.sub(r'\n\s*\n', '\n', normalized)
+        
+        # 4. Strip whitespace from each line
+        lines = [line.strip() for line in normalized.split('\n')]
+        normalized = '\n'.join(lines)
+        
+        # 5. Remove empty lines
+        lines = [line for line in lines if line]
+        normalized = '\n'.join(lines)
+        
+        return normalized
+
+    def compute_agent_checksum(agent_components) -> str:
+        """
+        Compute deterministic SHA-256 checksum for agent configuration.
+        
+        Args:
+            agent_components: Object with fields:
+                - agent_id: str
+                - prompt_template: str
+                - tools: list of Tool objects
+                - configuration: dict
+        
+        Returns:
+            64-character lowercase hex string (SHA-256 hash)
+        """
+        # Construct canonical components object
+        components = {
+            "id": agent_components.agent_id,
+            "prompt": normalize_prompt(agent_components.prompt_template),
+            "tools": sorted([
+                {
+                    "name": tool.name,
+                    "signature": tool.signature,
+                    "description": tool.description
+                    # "source_code" included only for deep checksum tools
+                }
+                for tool in agent_components.tools
+            ], key=lambda x: x["name"]),  # Sort tools by name
+            "config": agent_components.configuration
+        }
+        
+        # Serialize with sorted keys for determinism
+        content = json.dumps(components, sort_keys=True)
+        
+        # Compute SHA-256 hash
+        return hashlib.sha256(content.encode('utf-8')).hexdigest()
+          ]]></sourcecode>
+          
+          <t>
+            <strong>Critical Requirements:</strong>
+          </t>
+          
+          <ul spacing="normal">
+            <li>
+              Use <tt>json.dumps()</tt> with <tt>sort_keys=True</tt> for
+              deterministic JSON serialization
+            </li>
+            <li>
+              Normalize prompts using the exact normalization function above
+              (whitespace, line endings, empty lines)
+            </li>
+            <li>
+              Sort tools by name before serialization
+            </li>
+            <li>
+              Encode JSON string as UTF-8 before hashing
+            </li>
+            <li>
+              Output lowercase hexadecimal (64 characters)
+            </li>
+            <li>
+              Tool signatures MUST use <tt>get_core_signature()</tt> to remove
+              wrapper parameters (see Section 4.2.4)
+            </li>
+          </ul>
+          
+          <t>
+            <strong>Common Implementation Pitfalls:</strong>
+          </t>
+          
+          <ul spacing="normal">
+            <li>
+              Not normalizing prompts identically on client and server
+              (most common cause of checksum mismatch)
+            </li>
+            <li>
+              Including wrapper function parameters in tool signatures
+              (config, callbacks, run_manager, etc.)
+            </li>
+            <li>
+              Platform-specific line endings (\r\n vs \n) in prompts
+            </li>
+            <li>
+              Non-deterministic tool ordering (MUST sort by name)
+            </li>
+            <li>
+              Using standard JSON.stringify() without sort_keys
+            </li>
+            <li>
+              Uppercase hexadecimal encoding (MUST be lowercase)
+            </li>
+          </ul>
+        </section>
+      </section>
+      
+      <section anchor="agent_registration" title="Agent Registration">
+        
+        <section anchor="registration-overview" title="Registration Overview">
+          <t>
+            Before an agent can request tokens, it MUST register its checksum
+            with the authorization server. Registration creates a binding between
+            the agent_id and its cryptographic identity.
+          </t>
+          
+          <t>
+            The registration process:
+          </t>
+          
+          <ol spacing="normal">
+            <li>Agent computes its checksum client-side</li>
+            <li>Agent sends registration request to IDP</li>
+            <li>IDP validates agent configuration</li>
+            <li>IDP recomputes checksum for verification</li>
+            <li>IDP stores agent_id → checksum mapping</li>
+            <li>IDP returns registration confirmation</li>
+          </ol>
+        </section>
+        
+       <section anchor="registration-processing" title="IDP Processing">
+          <t>
+            The authorization server MUST perform the following steps:
+          </t>
+          
+          <ol spacing="normal">
+            <li>
+              <strong>Validate Request Structure:</strong>
+              Verify all required fields are present and properly formatted
+            </li>
+            
+            <li>
+              <strong>Compute Checksum:</strong>
+              Recompute agent checksum from agent_components using the
+              algorithm defined in Section 4.2.1
+            </li>
+            
+            <li>
+              <strong>Check for Duplicates:</strong>
+              Verify that the computed checksum does not already exist in
+              the registry. If it does, reject with error "duplicate_agent".
+              This prevents agent impersonation.
+            </li>
+            
+            <li>
+              <t>
+                <strong>Generate Registration ID:</strong>
+                Create unique registration identifier:
+              </t>              
+              <artwork><![CDATA[
+    registration_id = "reg_" + agent_id + "_" + timestamp
+              ]]></artwork>
+            </li>
+            
+            <li>
+              <t>
+                <strong>Store Registration:</strong>
+                Persist mapping:
+              </t>              
+              <sourcecode type="json"><![CDATA[
+    {
+      "agent_id": "vulnerability-patcher-v1",
+      "registration_id": "reg_vulnerability-patcher-v1_1735680000",
+      "checksum": "a3c7f2e8d9b4f1e2c8a7d6f3e9b2c4f1a8e7d3c2b5f4e9a7c3d8f2b6e1a9c4f7",
+      "prompt": "You are a security agent...",
+      "tools": [ /* tool definitions */ ],
+      "public_key": "-----BEGIN PUBLIC KEY-----...",
+      "registered_at": 1735680000000,
+      "app_id": "vulnerability-patcher-app",
+      "version": 1
+    }
+              ]]></sourcecode>
+            </li>
+            
+            <li>
+              <strong>Return Confirmation:</strong>
+              Return registration details to client
+            </li>
+          </ol>
+        </section>
+        
+        <section anchor="registration-response" title="Registration Response">
+          <t>
+            Success response:
+          </t>
+          
+          <sourcecode type="http"><![CDATA[
+    HTTP/1.1 200 OK
+    Content-Type: application/json
+
+    {
+      "agent_id": "vulnerability-patcher-v1",
+      "registration_id": "reg_vulnerability-patcher-v1_1735680000",
+      "checksum": "a3c7f2e8d9b4f1e2c8a7d6f3e9b2c4f1a8e7d3c2b5f4e9a7c3d8f2b6e1a9c4f7"
+    }
+          ]]></sourcecode>
+          
+          <t>
+            Error response (duplicate checksum):
+          </t>
+          
+          <sourcecode type="http"><![CDATA[
+    HTTP/1.1 400 Bad Request
+    Content-Type: application/json
+
+    {
+      "error": "duplicate_agent",
+      "error_description": "Agent with identical checksum already exists",
+      "existing_agent_id": "other-agent-v1"
+    }
+          ]]></sourcecode>
+        </section>
+        
+        <section anchor="registration-updates" title="Agent Updates">
+          <t>
+            When an agent's configuration changes (e.g., tool updates, prompt
+            modifications), a new checksum is computed and the agent MUST
+            re-register.
+          </t>
+
+          <t>
+            <strong>NOTE: </strong> This registration process can be automated by introdcuing 
+            additional steps into CI / CD or by Model Context Protocol 
+            (MCP, <xref target="MCP"/>) integration to the IDP server, or by any other agent 
+            resource management process. Regardless of the methodology used the underlying 
+            conceptual process remains the same.
+          </t>
+          
+          <t>
+            Update procedure:
+          </t>
+          
+          <ol spacing="normal">
+            <li>Compute new checksum from updated configuration</li>
+            <li>Submit new registration request (same agent_id)</li>
+            <li>IDP validates new checksum is different from previous</li>
+            <li>IDP creates new registration record with incremented version</li>
+            <li>IDP MAY maintain previous registrations for audit trail</li>
+            <li>IDP uses LATEST registration for token validation</li>
+          </ol>
+          
+          <t>
+            Example: Agent version progression
+          </t>
+          
+          <sourcecode type="json"><![CDATA[
+    // Version 1 (original)
+    {
+      "agent_id": "patcher-v1",
+      "checksum": "aaa1234567890abcdef1234567890abcdef1234567890abcdef1234567890abc",
+      "version": 1,
+      "registered_at": 1735680000000
+    }
+
+    // Version 2 (tool updated)
+    {
+      "agent_id": "patcher-v1",
+      "checksum": "bbb9876543210fedcba9876543210fedcba9876543210fedcba9876543210fed",
+      "version": 2,
+      "registered_at": 1735690000000
+    }
+          ]]></sourcecode>
+          
+          <t>
+            The IDP MUST use the latest version (highest registered_at) for
+            checksum verification during token requests.
+          </t>
+        </section>
+      </section>
+      
+      <section anchor="checksum_verification" title="Checksum Verification">
+        
+        <section anchor="verification_client_side" title="Client-Side Verification">
+          <t>
+            Before requesting a token, the agent MUST compute its current
+            checksum and include it in the token request. This proves that
+            the requesting agent's configuration matches the registered identity.
+          </t>
+          
+          <t>
+            Client-side process:
+          </t>
+          
+          <sourcecode type="python"><![CDATA[
+    # 1. Detect current agent context
+    agent_spec = get_current_agent_spec()
+
+    # 2. Compute checksum from current configuration
+    current_checksum = compute_agent_checksum(agent_spec)
+
+    # 3. Include in token request
+    token_request = {
+        "grant_type": "agent_checksum",
+        "agent_id": agent_spec.agent_id,
+        "computed_checksum": current_checksum,
+        ...
+    }
+          ]]></sourcecode>
+        </section>
+        
+        <section anchor="verification_server_side" title="Server-Side Verification">
+          <t>
+            Upon receiving a token request, the authorization server MUST
+            verify the agent checksum:
+          </t>
+          
+          <sourcecode type="python"><![CDATA[
+    # From intent.py implementation
+
+    # 1. Retrieve registered checksum
+    registered_checksums = registry.get_agent(agent_id)
+    stored_checksum = registered_checksums[-1].checksum  # Latest version
+
+    # 2. Compare with submitted checksum (constant-time)
+    if computed_checksum != stored_checksum:
+        raise AgentChecksumMismatch(
+            "Agent checksum mismatch - code integrity violation"
+        )
+          ]]></sourcecode>
+          
+          <t>
+            The comparison MUST use constant-time string comparison to prevent
+            timing attacks that could reveal checksum information.
+          </t>
+
+          <t>
+            NOTE: The authorization server retrieves the LATEST registration
+            for the agent_id, as agents may re-register with updated checksums
+            when their configuration changes.
+          </t>
+        </section>
+        
+      </section>
+      
+      <section anchor="identity_lifecycle" title="Identity Lifecycle">
+        
+        <section anchor="lifecycle-stages" title="Lifecycle Stages">
+          <t>
+            Agent identity progresses through several stages:
+          </t>
+          
+          <ol spacing="normal">
+            <li>
+              <strong>UNREGISTERED:</strong>
+              Agent exists but has not registered with IDP. Cannot request tokens.
+            </li>
+            
+            <li>
+              <strong>REGISTERED:</strong>
+              Agent checksum stored in IDP registry. Can request tokens if
+              checksum matches.
+            </li>
+            
+            <li>
+              <strong>VERIFIED:</strong>
+              Agent successfully authenticated and obtained token. Identity
+              confirmed through checksum match.
+            </li>
+            
+            <li>
+              <strong>UPDATED:</strong>
+              Agent configuration changed, new checksum computed, re-registration
+              required. Previous tokens may be invalidated.
+            </li>
+            
+            <li>
+              <strong>REVOKED:</strong>
+              Agent identity revoked by administrator. All tokens invalidated.
+              Cannot request new tokens.
+            </li>
+          </ol>
+        </section>
+        
+        <section anchor="lifecycle-state-transitions" title="State Transitions">
+          <t>
+            Valid state transitions:
+          </t>
+          
+          <artwork><![CDATA[
+    UNREGISTERED --[register]--> REGISTERED
+                                      |
+                                      v
+    REGISTERED --[token request + checksum match]--> VERIFIED
+                                      |
+                                      v
+    VERIFIED --[config change]--> UPDATED --[re-register]--> REGISTERED
+                                      |
+                                      v
+    ANY STATE --[admin action]--> REVOKED
+          ]]></artwork>
+        </section>
+        
+      </section>
+      
+      <section anchor="identity_security" title="Identity Security Considerations">
+        <t>
+          Agent identity security considerations:
+        </t>
+        <ul>
+          <li>Checksum strength: See <xref target="checksum_strength"/></li>
+          <li>Registration security: See <xref target="sec_registration"/></li>
+          <li>Agent Registry Security: See <xref target="sec_storage"/></li>
+        </ul>
+        <t>
+          For comprehensive security analysis, see <xref target="security_considerations"/>.
+        </t>
+      </section>
+      
+    </section>
+
+    <section anchor="protocol_flows" title="Protocol Flows">
+      
+      <section anchor="flows_overview" title="Overview">
+        <t>
+          This section describes the detailed protocol flows for agent
+          registration, token issuance, and authorization. Each flow includes
+          step-by-step procedures, HTTP request/response examples, and
+          validation requirements.
+        </t>
+        
+        <t>
+          The flows in this section build upon the abstract protocol flow described in
+          <xref target="abstract_protocol_flow"/>, providing complete implementation 
+          guidance for:
+        </t>
+        
+        <ul spacing="normal">
+          <li>Agent registration and checksum verification</li>
+          <li>Workflow registration and definition</li>
+          <li>Intent token issuance with user approval</li>
+          <li>Access token requests using agent_checksum grant</li>
+          <li>API authorization and token validation</li>
+          <li>Multi-agent delegation chains</li>
+        </ul>
+      </section>
+      
+      <section anchor="flow_agent_registration" title="Agent Registration Flow">
+        
+        <section anchor="flow_agent_reg_overview" title="Overview">
+          <t>
+            Before an agent can request tokens, it MUST register its identity
+            with the authorization server. This flow establishes the cryptographic
+            binding between the agent_id and its configuration checksum.
+          </t>
+        </section>
+        
+        <section anchor="flow_agent_reg_diagram" title="Sequence Diagram">
+          <t>
+            Agent registration sequence:
+          </t>
+          
+          <artwork align="center"><![CDATA[
+    ┌─────────┐              ┌─────────────┐         ┌──────────────┐
+    │ Agent   │              │ Application │         │ IDP          │
+    │ Runtime │              │ (Client)    │         │              │
+    └────┬────┘              └──────┬──────┘         └──────┬───────┘
+        │                          │                       │
+        │ 1. Compute checksum      │                       │
+        │<─────────────────────────│                       │
+        │   compute_agent_checksum()│                       │
+        │                          │                       │
+        │ 2. Return checksum       │                       │
+        │──────────────────────────>│                       │
+        │                          │                       │
+        │                          │ 3. POST /register/agent│
+        │                          │──────────────────────>│
+        │                          │   (agent_components,  │
+        │                          │    public_key)        │
+        │                          │                       │
+        │                          │                       │ 4. Recompute
+        │                          │                       │    checksum
+        │                          │                       │<───────────
+        │                          │                       │
+        │                          │                       │ 5. Check for
+        │                          │                       │    duplicates
+        │                          │                       │<───────────
+        │                          │                       │
+        │                          │                       │ 6. Store
+        │                          │                       │    registration
+        │                          │                       │<───────────
+        │                          │                       │
+        │                          │ 7. Registration response│
+        │                          │<──────────────────────│
+        │                          │   (registration_id,   │
+        │                          │    checksum)          │
+        │                          │                       │
+          ]]></artwork>
+        </section>
+        
+        <section anchor="flow_agent_reg_steps" title="Step-by-Step Procedure">
+          <ol spacing="normal">
+            <li>
+              <t>
+              <strong>Agent Checksum Computation (Client-Side):</strong>
+                The agent runtime computes its configuration checksum using
+                the algorithm defined in <xref target="checksum_computation"/>. 
+                This includes the agent's prompt, tools, and configuration parameters.
+              </t>
+            </li>
+            
+            <li>
+              <t>
+              <strong>Public Key Generation (Optional):</strong>
+                If proof-of-possession <xref target="RFC7800"/> is required, the agent generates an RSA key pair and prepares the public key in PEM format.
+              </t>
+            </li>
+            
+            <li>
+              <t>
+              <strong>Registration Request:</strong>
+                The application sends a registration request to the IDP's
+                agent registration endpoint, including the complete agent
+                configuration and optional public key.
+              </t>
+            </li>
+            
+            <li>
+              <t>
+              <strong>Server-Side Checksum Verification:</strong>
+                The IDP recomputes the agent checksum from the submitted
+                configuration and verifies it matches the claimed checksum.
+              </t>
+            </li>
+            
+            <li>
+              <t>
+              <strong>Duplicate Detection:</strong>
+                The IDP checks if the computed checksum already exists in
+                the registry. If found, the request is rejected with error
+                "duplicate_agent" to prevent agent impersonation.
+              </t>
+            </li>
+            
+            <li>
+              <t>
+              <strong>Registration Storage:</strong>
+                The IDP creates a unique registration_id, stores the mapping
+                (agent_id → checksum → registration_id), and persists the
+                registration record.
+              </t>
+            </li>
+            
+            <li>
+              <t>
+              <strong>Response:</strong>
+                The IDP returns the registration_id and computed checksum
+                to the client for verification.
+              </t>
+            </li>
+          </ol>
+        </section>        
+        
+      </section>
+      
+      <section anchor="flow-workflow-registration" title="Workflow Registration Flow">
+        
+        <section anchor="flow-workflow-reg-overview" title="Overview">
+          <t>
+            Workflows define the sequence of steps that agents execute and
+            the authorization requirements for each step. Workflow registration
+            establishes the workflow definition with the IDP before execution.
+          </t>
+        </section>
+        
+        <section anchor="flow-workflow-reg-diagram" title="Sequence Diagram">
+          <artwork align="center"><![CDATA[
+    ┌─────────────┐                           ┌──────────────┐
+    │ Application │                           │ IDP          │
+    └──────┬──────┘                           └──────┬───────┘
+          │                                         │
+          │ 1. POST /register/workflow              │
+          │────────────────────────────────────────>│
+          │   (workflow_id, steps[])                │
+          │                                         │
+          │                                         │ 2. Validate
+          │                                         │    structure
+          │                                         │<───────────
+          │                                         │
+          │                                         │ 3. Check for
+          │                                         │    duplicates
+          │                                         │<───────────
+          │                                         │
+          │                                         │ 4. Store
+          │                                         │    workflow
+          │                                         │<───────────
+          │                                         │
+          │ 5. Registration confirmation            │
+          │<────────────────────────────────────────│
+          │   (workflow_id, status)                 │
+          │                                         │
+          ]]></artwork>
+        </section>
+        
+        <section anchor="flow-workflow-reg-example" title="HTTP Example">
+          <t>
+            Workflow registration request:
+          </t>
+          
+          <sourcecode type="http"><![CDATA[
+    POST /intent/register/workflow HTTP/1.1
+    Host: idp.example.com
+    Content-Type: application/json
+    Authorization: Bearer <admin_token>
+
+    {
+      "workflow_id": "auto-patch-workflow-v1",
+      "steps": {
+        "step_1_analyze_manifest": {
+          "required": true,
+          "requires_approval": false,
+          "agent_id": "vulnerability-analyzer"
+        },
+        "step_2_create_patch_plan": {
+          "required": true,
+          "requires_approval": false,
+          "agent_id": "patch-planner"
+        },
+        "step_3_approval_gate": {
+          "required": true,
+          "requires_approval": false,
+          "approval_gate": true
+        },
+        "step_4_apply_patch": {
+          "required": true,
+          "requires_approval": true,
+          "agent_id": "vulnerability-patcher-v1"
+        },
+        "step_5_verify_patch": {
+          "required": true,
+          "requires_approval": false,
+          "agent_id": "patch-verifier"
+        }
+      }
+    }
+          ]]></sourcecode>
+          
+          <t>
+            Success response:
+          </t>
+          
+          <sourcecode type="http"><![CDATA[
+    HTTP/1.1 200 OK
+    Content-Type: application/json
+
+    {
+      "status": "registered",
+      "workflow_id": "auto-patch-workflow-v1"
+    }
+          ]]></sourcecode>
+        </section>
+      </section>
+      
+      <section anchor="flow-token-request" title="Token Request Flow">
+        
+        <section anchor="flow-token-req-overview" title="Overview">
+          <t>
+            This flow describes how an agent requests an intent token using
+            the agent_checksum grant type. The flow includes agent identity
+            verification, workflow step authorization, and token issuance.
+          </t>
+        </section>
+        
+        <section anchor="flow-token-req-diagram" title="Sequence Diagram">
+          <artwork align="center"><![CDATA[
+    ┌──────┐     ┌────────┐     ┌─────┐     ┌──────────┐     ┌──────────┐
+    │Agent │     │Client  │     │User │     │IDP       │     │Registry  │
+    └──┬───┘     └───┬────┘     └──┬──┘     └────┬─────┘     └────┬─────┘
+      │             │              │             │                │
+      │1. Trigger   │              │             │                │
+      │────────────>│              │             │                │
+      │             │              │             │                │
+      │             │2. Compute    │             │                │
+      │             │   checksum   │             │                │
+      │<────────────│              │             │                │
+      │             │              │             │                │
+      │3. Checksum  │              │             │                │
+      │────────────>│              │             │                │
+      │             │              │             │                │
+      │             │4. POST /token│             │                │
+      │             │──────────────┼─────────────>│                │
+      │             │  (agent_id,  │             │                │
+      │             │   checksum,  │             │                │
+      │             │   workflow)  │             │                │
+      │             │              │             │                │
+      │             │              │             │5. Get agent    │
+      │             │              │             │   registration │
+      │             │              │             │───────────────>│
+      │             │              │             │                │
+      │             │              │             │6. Registration │
+      │             │              │             │<───────────────│
+      │             │              │             │                │
+      │             │              │             │7. Verify       │
+      │             │              │             │   checksum     │
+      │             │              │             │<───────────    │
+      │             │              │             │                │
+      │             │              │             │8. Validate     │
+      │             │              │             │   workflow step│
+      │             │              │             │<───────────    │
+      │             │              │             │                │
+      │             │              │             │9. Create token │
+      │             │              │             │<───────────    │
+      │             │              │             │                │
+      │             │10. Token     │             │                │
+      │             │<─────────────┼─────────────│                │
+      │             │  response    │             │                │
+      │             │              │             │                │
+          ]]></artwork>
+        </section>
+        
+        <section anchor="flow-token-req-steps" title="Step-by-Step Procedure">
+          <ol spacing="normal">
+            <li>
+              <strong>Execution Trigger:</strong>
+              Agent execution is triggered by application logic or user request.
+            </li>
+            
+            <li>
+              <strong>Checksum Computation:</strong>
+              Client computes current agent checksum using algorithm from Section 5.3.
+            </li>
+            
+            <li>
+              <strong>Checksum Return:</strong>
+              Agent runtime returns computed checksum to client library.
+            </li>
+            
+            <li>
+              <strong>Token Request:</strong>
+              Client sends token request to IDP with agent_checksum grant type,
+              including agent_id, computed checksum, workflow details, and
+              requested scopes.
+            </li>
+            
+            <li>
+              <strong>Registry Lookup:</strong>
+              IDP retrieves agent registration from registry based on agent_id.
+            </li>
+            
+            <li>
+              <strong>Registration Return:</strong>
+              Registry returns stored registration including registered checksum.
+            </li>
+            
+            <li>
+              <strong>Checksum Verification:</strong>
+              IDP compares computed_checksum (from request) with stored checksum.
+              If mismatch, return error "agent_checksum_mismatch".
+            </li>
+            
+            <li>
+              <t>
+                <strong>Workflow Step Validation:</strong>
+                If workflow_enabled=true, IDP validates:
+              </t>
+              <ul spacing="normal">
+                <li>Workflow exists in registry</li>
+                <li>Step exists in workflow definition</li>
+                <li>Required prerequisite steps are completed</li>
+                <li>Approval requirements are satisfied</li>
+              </ul>
+              <t>
+                If validation fails, return error "workflow_step_unauthorized".
+              </t>
+            </li>
+            
+            <li>
+              <t>
+                <strong>Token Creation:</strong>
+                IDP creates intent token with:
+              </t>
+              <ul spacing="normal">
+                <li>Standard JWT claims (iss, aud, sub, exp, iat, jti, scope)</li>
+                <li>cnf claim with agent's public key</li>
+                <li>intent object with workflow details</li>
+                <li>agent_proof object with checksum and registration_id</li>
+              </ul>
+            </li>
+            
+            <li>
+              <strong>Token Response:</strong>
+              IDP returns token response with access_token, token_type,
+              expires_in, and granted scopes.
+            </li>
+          </ol>
+        </section>
+      </section>
+      
+      <section anchor="flow-api-authorization" title="API Authorization Flow">
+        
+        <section anchor="flow-api-auth-overview" title="Overview">
+          <t>
+            This flow describes how a resource server validates an intent token
+            and authorizes an API request from an agent. The validation includes
+            token signature verification, checksum validation, workflow binding
+            checks, and scope verification.
+          </t>
+        </section>
+        
+        <section anchor="flow-api-auth-diagram" title="Sequence Diagram">
+          <artwork align="center"><![CDATA[
+    ┌──────┐     ┌────────┐     ┌──────────┐     ┌──────────┐
+    │Agent │     │Client  │     │Resource  │     │IDP       │
+    │      │     │        │     │Server    │     │(JWKS)    │
+    └──┬───┘     └───┬────┘     └────┬─────┘     └────┬─────┘
+      │             │               │                │
+      │1. API call  │               │                │
+      │────────────>│               │                │
+      │             │               │                │
+      │             │2. GET /api    │                │
+      │             │──────────────>│                │
+      │             │   Bearer token│                │
+      │             │               │                │
+      │             │               │3. Get JWKS     │
+      │             │               │───────────────>│
+      │             │               │                │
+      │             │               │4. Public keys  │
+      │             │               │<───────────────│
+      │             │               │                │
+      │             │               │5. Verify       │
+      │             │               │   signature    │
+      │             │               │<───────────    │
+      │             │               │                │
+      │             │               │6. Validate     │
+      │             │               │   claims       │
+      │             │               │<───────────    │
+      │             │               │                │
+      │             │               │7. Check scope  │
+      │             │               │<───────────    │
+      │             │               │                │
+      │             │               │8. Process      │
+      │             │               │   request      │
+      │             │               │<───────────    │
+      │             │               │                │
+      │             │9. API response│                │
+      │             │<──────────────│                │
+      │             │               │                │
+      │10. Result   │               │                │
+      │<────────────│               │                │
+      │             │               │                │
+          ]]></artwork>
+        </section>
+        
+        <section anchor="flow-api-auth-steps" title="Validation Steps">
+          <ol spacing="normal">
+            <li>
+              <strong>Extract Token:</strong>
+              Resource server extracts Bearer token from Authorization header.
+            </li>
+            
+            <li>
+              <strong>Retrieve JWKS:</strong>
+              Resource server fetches IDP's JSON Web Key Set for signature
+              verification.
+            </li>
+            
+            <li>
+              <strong>Verify Signature:</strong>
+              Resource server verifies JWT signature using IDP's public key
+              identified by "kid" header.
+            </li>
+            
+            <li>
+              <t>
+                <strong>Validate Standard Claims:</strong>
+              </t>
+              <ul spacing="normal">
+                <li>Check token not expired (exp > current time)</li>
+                <li>Validate issuer (iss matches expected IDP)</li>
+                <li>Validate audience (aud matches resource server)</li>
+                <li>Check token issued time (iat not in future)</li>
+              </ul>
+            </li>
+            
+            <li>
+              <t>
+                <strong>Validate Agent Proof:</strong>
+              </t>
+              <ul spacing="normal">
+                <li>Verify agent_proof.agent_checksum is present</li>
+                <li>Verify agent_proof.registration_id is present</li>
+                <li>Optionally verify checksum against known agents</li>
+              </ul>
+            </li>
+            
+            <li>
+              <t>
+                <strong>Validate Workflow Binding (if applicable):</strong>
+              </t>
+              <ul spacing="normal">
+                <li>Check intent.workflow_id matches expected workflow</li>
+                <li>Verify intent.workflow_step is authorized for this API</li>
+                <li>Validate delegation_chain if delegation is restricted</li>
+              </ul>
+            </li>
+            
+            <li>
+              <strong>Verify Scopes:</strong>
+              Check that requested operation is permitted by token scopes.
+            </li>
+            
+            <li>
+              <strong>Proof-of-Possession (Optional):</strong>
+              If required, verify PoP signature using public key in cnf claim.
+            </li>
+            
+            <li>
+              <strong>Process Request:</strong>
+              If all validations pass, execute the API operation.
+            </li>
+          </ol>
+        </section>
+       
+      </section>
+      
+      <section anchor="flow-delegation" title="Multi-Agent Delegation Flow">
+        
+        <section anchor="flow-delegation-overview" title="Overview">
+          <t>
+            Multi-agent workflows involve delegation chains where a supervisor
+            agent delegates tasks to subordinate agents. Each agent in the chain
+            requests its own token, building upon the delegation context from
+            parent agents.
+          </t>
+          
+          <t>
+            This flow illustrates a three-agent delegation chain for automated
+            vulnerability patching:
+          </t>
+          
+          <ul spacing="normal">
+            <li>Supervisor Agent - Orchestrates the workflow</li>
+            <li>Planner Agent - Creates patch strategy</li>
+            <li>Patcher Agent - Applies the actual patch</li>
+          </ul>
+        </section>
+        
+        <section anchor="flow-delegation-diagram" title="Sequence Diagram">
+          <artwork align="center"><![CDATA[
+    ┌────────────┐  ┌─────────┐  ┌─────────┐  ┌─────┐  ┌─────────────┐
+    │Supervisor  │  │Planner  │  │Patcher  │  │User │  │IDP          │
+    └─────┬──────┘  └────┬────┘  └────┬────┘  └──┬──┘  └──────┬──────┘
+          │              │             │          │            │
+          │1. Request    │             │          │            │
+          │   token      │             │          │            │
+          │──────────────┼─────────────┼──────────┼───────────>│
+          │   (step_1,   │             │          │            │
+          │    chain=[]) │             │          │            │
+          │              │             │          │            │
+          │2. Token      │             │          │            │
+          │<─────────────┼─────────────┼──────────┼────────────│
+          │              │             │          │            │
+          │3. Delegate   │             │          │            │
+          │   to Planner │             │          │            │
+          │─────────────>│             │          │            │
+          │              │             │          │            │
+          │              │4. Request   │          │            │
+          │              │   token     │          │            │
+          │              │─────────────┼──────────┼───────────>│
+          │              │ (step_2,    │          │            │
+          │              │  chain=[S]) │          │            │
+          │              │             │          │            │
+          │              │5. Token     │          │            │
+          │              │<────────────┼──────────┼────────────│
+          │              │             │          │            │
+          │              │6. Delegate  │          │            │
+          │              │   to Patcher│          │            │
+          │              │────────────>│          │            │
+          │              │             │          │            │
+          │              │             │7. Request│            │
+          │              │             │   token  │            │
+          │              │             │──────────┼───────────>│
+          │              │             │(step_4,  │            │
+          │              │             │chain=[S,P])           │
+          │              │             │          │            │
+          │              │             │          │8. Approval │
+          │              │             │          │   required │
+          │              │             │          │<───────────│
+          │              │             │          │            │
+          │              │             │          │9. Approve  │
+          │              │             │          │───────────>│
+          │              │             │          │            │
+          │              │             │10. Token │            │
+          │              │             │<─────────┼────────────│
+          │              │             │          │            │
+          │              │             │11. Execute            │
+          │              │             │<─────────             │
+          │              │             │                       │
+          ]]></artwork>
+          
+          <t>
+            Legend: S = Supervisor, P = Planner
+          </t>
+        </section>
+        
+        <section anchor="flow-delegation-steps" title="Delegation Steps">
+          <ol spacing="normal">
+            <li>
+              <t>
+              <strong>Supervisor Token Request:</strong>
+                Supervisor agent requests token for step_1 with empty
+                delegation chain.
+              </t>
+              <sourcecode type="json"><![CDATA[
+    {
+      "agent_id": "supervisor-agent",
+      "workflow_step": "step_1_analyze_manifest",
+      "delegation_context": {
+        "chain": [],
+        "completed_steps": []
+      }
+    }
+              ]]></sourcecode>
+            </li>
+            
+            <li>
+              <t>
+              <strong>Supervisor Executes Step 1:</strong>
+                Supervisor analyzes the manifest and determines patching is needed.
+              </t>
+            </li>
+            
+            <li>
+              <t>
+              <strong>Delegation to Planner:</strong>
+                Supervisor delegates to Planner agent, passing delegation context.
+              </t>
+            </li>
+            
+            <li>
+              <t>
+              <strong>Planner Token Request:</strong>
+                Planner requests token for step_2, including Supervisor in chain.
+              </t>
+              <sourcecode type="json"><![CDATA[
+    {
+      "agent_id": "patch-planner",
+      "workflow_step": "step_2_create_patch_plan",
+      "delegation_context": {
+        "chain": ["supervisor-agent"],
+        "completed_steps": ["step_1_analyze_manifest"]
+      }
+    }
+              ]]></sourcecode>
+            </li>
+            
+            <li>
+              <t>
+              <strong>Planner Executes Step 2:</strong>
+                Planner creates patch strategy and identifies target packages.
+              </t>
+            </li>
+            
+            <li>
+              <t>
+              <strong>Delegation to Patcher:</strong>
+                Planner delegates to Patcher agent, passing updated delegation context.
+              </t>
+            </li>
+            
+            <li>
+              <t>
+              <strong>Patcher Token Request:</strong>
+                Patcher requests token for step_4, including full delegation chain.
+              </t>
+              <sourcecode type="json"><![CDATA[
+    {
+      "agent_id": "vulnerability-patcher-v1",
+      "workflow_step": "step_4_apply_patch",
+      "delegation_context": {
+        "chain": ["supervisor-agent", "patch-planner"],
+        "completed_steps": [
+          "step_1_analyze_manifest",
+          "step_2_create_patch_plan",
+          "step_3_approval_gate"
+        ]
+      }
+    }
+              ]]></sourcecode>
+            </li>
+            
+            <li>
+              <t>
+              <strong>Approval Check:</strong>
+                IDP detects step_4 requires approval (step_3 is approval gate).
+                Step_3 must be in completed_steps or request is rejected.
+              </t>
+            </li>
+            
+            <li>
+              <t>
+              <strong>User Approval:</strong>
+                User has already approved at step_3 approval gate.
+              </t>
+            </li>
+            
+            <li>
+              <t>
+              <strong>Token Issuance:</strong>
+                IDP issues token to Patcher with:
+              </t>
+              <ul spacing="normal">
+                <li>delegation_chain: SHA-256("supervisor-agent|patch-planner|vulnerability-patcher-v1")</li>
+                <li>step_sequence_hash: SHA-256("step_1|step_2|step_3|step_4")</li>
+              </ul>
+            </li>
+            
+            <li>
+              <t>
+              <strong>Patcher Execution:</strong>
+                Patcher applies the security patch using the intent token.
+              </t>
+            </li>
+          </ol>
+        </section>
+        
+        <section anchor="flow-delegation-validation" title="Delegation Validation">
+          <t>
+            At each delegation step, the IDP validates:
+          </t>
+          
+          <ol spacing="normal">
+            <li>
+              <strong>Chain Continuity:</strong>
+              Current agent is appended to delegation_context.chain, not
+              inserted or replaced.
+            </li>
+            
+            <li>
+              <strong>Step Sequence:</strong>
+              completed_steps contains all required prerequisite steps.
+            </li>
+            
+            <li>
+              <strong>Approval Requirements:</strong>
+              If step requires approval, the most recent approval gate must
+              be in completed_steps.
+            </li>
+            
+            <li>
+              <strong>Agent Authorization:</strong>
+              Current agent is authorized to execute the requested workflow step.
+            </li>
+          </ol>
+          
+          <t>
+            Resource servers MAY additionally validate:
+          </t>
+          
+          <ul spacing="normal">
+            <li>
+              Delegation depth is within acceptable limits
+            </li>
+            <li>
+              All agents in delegation chain are registered and not revoked
+            </li>
+            <li>
+              Delegation chain matches expected workflow pattern
+            </li>
+          </ul>
+        </section>
+      </section>
+      
+    </section>
+
+    <section anchor="future-work" title="Future Work">
+      <name>Future Work</name>
+      
+      <t>
+        Future versions or extensions of this specification may align with the Grant Negotiation and Authorization Protocol (GNAP) <xref target="I-D.ietf-txauth-gnap"/>, 
+        which provides a JSON-based foundation for dynamic authorization scenarios. 
+        A GNAP binding for Agentic JWT would enable the agent-specific security 
+        mechanisms defined in this specification to work within the GNAP framework.
+      </t>
+      
+      <t>
+        Additional areas for future development include:
+      </t>
+      <ul>
+        <li>Integration with Model Context Protocol (MCP) standard <xref target="MCP"/></li>
+        <li>Support for additional hash algorithms beyond SHA-256</li>
+        <li>Cross-domain agent identity federation</li>
+        <li>Support for gRPC protocol. <xref target="GRPC"/></li>
+        <li>Support for prorietary protocols used for database connections, and asynchrnous messaging.</li>
+      </ul>
+    </section>
+    
+    <section anchor="IANA" title="IANA Considerations">
+      
+      <section anchor="iana-overview" title="Overview">
+        <t>
+          This specification requires IANA to register a new OAuth 2.0
+          authorization grant type, JWT claims, OAuth parameters, and error
+          codes in the appropriate registries.
+        </t>
+      </section>
+      
+      <section anchor="iana-grant-type" title="OAuth Authorization Grant Type Registration">
+        <t>
+          This section registers the following grant type value in the IANA
+          "OAuth URI" registry <xref target="IANA.OAuth.URI"/> established by 
+          "An IETF URN Sub-Namespace for Auth" <xref target="RFC6755"/>:
+        </t>
+        
+        <table anchor="t-grant-type" align="left">
+          <name>OAuth Grant Type Registration</name>
+          <thead>
+            <tr>
+              <th>Grant Type</th>
+              <th>URN</th>
+              <th>Common Name</th>
+              <th>Change Controller</th>
+              <th>Reference</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>agent_checksum</td>
+              <td>urn:ietf:params:oauth:grant-type:agent_checksum</td>
+              <td>Agent Checksum Grant type for OAuth 2.0</td>
+              <td>IETF</td>
+              <td>[this document], <xref target="grant_type"/></td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+      
+      <section anchor="iana-jwt-claims" title="JWT Claims Registration">
+        <t>
+          This section registers the following claims in the IANA
+          "JSON Web Token Claims" registry <xref target="IANA.JWT.Claims"/> 
+          established by <xref target="RFC7519"/>:
+        </t>
+        
+        <table anchor="t-jwt-claims" align="left">
+          <name>JWT Claims Registrations</name>
+          <thead>
+            <tr>
+              <th>Claim Name</th>
+              <th>Claim Description</th>
+              <th>Change Controller</th>
+              <th>Specification Document</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>workflow_id</td>
+              <td>Identifier of the workflow being executed</td>
+              <td>IETF</td>
+              <td>[this document], <xref target="grant_token_structure"/></td>
+            </tr>
+            <tr>
+              <td>workflow_step</td>
+              <td>Identifier of the current workflow step</td>
+              <td>IETF</td>
+              <td>[this document], <xref target="grant_token_structure"/></td>
+            </tr>
+            <tr>
+              <td>executed_by</td>
+              <td>Agent identifier executing the workflow step</td>
+              <td>IETF</td>
+              <td>[this document], <xref target="grant_token_structure"/></td>
+            </tr>
+            <tr>
+              <td>delegation_chain</td>
+              <td>SHA-256 hash of agent delegation sequence</td>
+              <td>IETF</td>
+              <td>[this document], <xref target="grant_token_structure"/></td>
+            </tr>
+            <tr>
+              <td>step_sequence_hash</td>
+              <td>SHA-256 hash of completed workflow steps</td>
+              <td>IETF</td>
+              <td>[this document], <xref target="grant_token_structure"/></td>
+            </tr>
+            <tr>
+              <td>agent_checksum</td>
+              <td>SHA-256 checksum of agent configuration</td>
+              <td>IETF</td>
+              <td>[this document], <xref target="grant_token_structure"/></td>
+            </tr>
+            <tr>
+              <td>registration_id</td>
+              <td>Unique agent registration instance identifier</td>
+              <td>IETF</td>
+              <td>[this document], <xref target="grant_token_structure"/></td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+      
+      <section anchor="iana-oauth-params" title="OAuth Parameters Registration">
+        <t>
+          This section registers the following parameters in the IANA
+          "OAuth Parameters" registry <xref target="IANA.OAuth.Parameters"/> 
+          established by <xref target="RFC6749"/>:
+        </t>
+        
+        <table anchor="t-oauth-params" align="left">
+          <name>OAuth Parameters Registrations</name>
+          <thead>
+            <tr>
+              <th>Parameter Name</th>
+              <th>Parameter Usage Location</th>
+              <th>Change Controller</th>
+              <th>Specification Document</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>agent_id</td>
+              <td>token request</td>
+              <td>IETF</td>
+              <td>[this document], <xref target="grant_request_format"/></td>
+            </tr>
+            <tr>
+              <td>computed_checksum</td>
+              <td>token request</td>
+              <td>IETF</td>
+              <td>[this document], <xref target="grant_request_format"/></td>
+            </tr>
+            <tr>
+              <td>workflow_id</td>
+              <td>token request</td>
+              <td>IETF</td>
+              <td>[this document], <xref target="grant_request_format"/></td>
+            </tr>
+            <tr>
+              <td>workflow_step</td>
+              <td>token request</td>
+              <td>IETF</td>
+              <td>[this document], <xref target="grant_request_format"/></td>
+            </tr>
+            <tr>
+              <td>workflow_enabled</td>
+              <td>token request</td>
+              <td>IETF</td>
+              <td>[this document], <xref target="grant_request_format"/></td>
+            </tr>
+            <tr>
+              <td>delegation_context</td>
+              <td>token request</td>
+              <td>IETF</td>
+              <td>[this document], <xref target="grant_request_format"/></td>
+            </tr>
+            <tr>
+              <td>requested_scopes</td>
+              <td>token request</td>
+              <td>IETF</td>
+              <td>[this document], <xref target="grant_request_format"/></td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+      
+      <section anchor="iana-oauth-errors" title="OAuth Extensions Error Registration">
+        <t>
+          This section registers the following error codes in the
+          "OAuth Extensions Error Registry" <xref target="IANA.Extensions.Error"/> 
+          established by <xref target="RFC6749"/>:
+        </t>
+        
+        <table anchor="t-oauth-errors" align="left">
+          <name>OAuth Error Code Registrations</name>
+          <thead>
+            <tr>
+              <th>Error Name</th>
+              <th>Error Usage Location</th>
+              <th>Related Protocol Extension</th>
+              <th>Change Controller</th>
+              <th>Specification</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>unknown_agent</td>
+              <td>token error response</td>
+              <td>Agent Checksum Grant</td>
+              <td>IETF</td>
+              <td>[this document], <xref target="grant_error_unknown_agent"/></td>
+            </tr>
+            <tr>
+              <td>agent_checksum_mismatch</td>
+              <td>token error response</td>
+              <td>Agent Checksum Grant</td>
+              <td>IETF</td>
+              <td>[this document], <xref target="grant_error_checksum_mismatch"/></td>
+            </tr>
+            <tr>
+              <td>workflow_step_unauthorized</td>
+              <td>token error response</td>
+              <td>Agent Checksum Grant</td>
+              <td>IETF</td>
+              <td>[this document], <xref target="grant_error_workflow_unauthorized"/></td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+      
+      <section anchor="iana-media-types" title="Media Type Registration">
+        <t>
+          This specification does not define any new media types. Agent
+          identity verification and token issuance use existing media types:
+        </t>
+        
+        <ul spacing="normal">
+          <li>application/json (RFC 7159) - For token requests and responses</li>
+          <li>application/jwt (RFC 7519) - For intent tokens</li>
+        </ul>
+      </section>
+      
+      <section anchor="iana-summary" title="Registration Summary">
+        <t>
+          Summary of IANA registrations required by this specification:
+        </t>
+        
+        <table anchor="t-iana-summary" align="left">
+          <name>IANA Registration Summary</name>
+          <thead>
+            <tr>
+              <th>Registry</th>
+              <th>Number of Registrations</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>OAuth URI</td>
+              <td>1</td>
+            </tr>
+            <tr>
+              <td>JSON Web Token Claims</td>
+              <td>7</td>
+            </tr>
+            <tr>
+              <td>OAuth Parameters</td>
+              <td>7</td>
+            </tr>
+            <tr>
+              <td>OAuth Extensions Error Registry</td>
+              <td>3</td>
+            </tr>
+            <tr>
+              <td><strong>TOTAL</strong></td>
+              <td><strong>18</strong></td>
+            </tr>
+          </tbody>
+        </table>
+      </section>      
+    </section>
+    
+    <section anchor="security_considerations" title="Security Considerations">
+      <!-- All drafts are required to have a security considerations section. See RFC 3552 for a guide. -->
+      <name>Security Considerations</name>
+      <t>
+        This section describes Threat Model and Security Considerations similar to 
+        OAuth 2.0 <xref target="RFC6819"/>.
+      </t>
+
+      <section anchor="sec_checksum" title="Checksum Security">
+        <section anchor="checksum_verification_security" title="Checksum Verification Security">
+          <t>
+            The agent checksum is the primary security mechanism in this grant
+            type. Implementations MUST:
+          </t>
+          
+          <ul>
+            <li>
+              Use constant-time comparison when verifying checksums to prevent
+              timing attacks
+            </li>
+            <li>
+              Log all checksum mismatch events for security monitoring
+            </li>
+            <li>
+              Consider implementing rate limiting on checksum verification
+              failures to prevent brute-force attacks
+            </li>
+            <li>
+              Reject checksums that don't match the expected format
+              (sha256:&lt;64 hex chars&gt;)
+            </li>
+          </ul>
+        </section>
+
+        <section anchor="checksum_strength" title="Checksum Strength">
+          <t>
+            SHA-256 provides 256-bit security against collision and preimage
+            attacks. This is sufficient for agent identity purposes given:
+          </t>
+          
+          <ul spacing="normal">
+            <li>
+              Checksums are not used for long-term secrets (only identity binding)
+            </li>
+            <li>
+              Collision resistance prevents two different agents from having
+              same checksum
+            </li>
+            <li>
+              Preimage resistance prevents deriving agent config from checksum
+            </li>
+          </ul>
+          
+          <t>
+            Future versions of this specification MAY support alternative hash
+            algorithms (e.g., SHA-3) through algorithm prefix versioning.
+          </t>
+        </section>
+
+        <section anchor="sec_registration" title="Registration Security">
+          <t>
+            Agent registration endpoints MUST be protected with authentication
+            and authorization to prevent:
+          </t>
+          
+          <ul spacing="normal">
+            <li>
+              Unauthorized agents registering under legitimate agent_ids
+            </li>
+            <li>
+              Denial of service through excessive registrations
+            </li>
+            <li>
+              Checksum enumeration attacks
+            </li>
+          </ul>
+          
+          <t>
+            The reference implementation requires admin-level OAuth tokens
+            with "register:intent" scope for registration endpoints.
+          </t>
+        </section>
+        
+        <section anchor="sec_storage" title="Registry Storage Security">
+          <t>
+            The agent registry contains sensitive identity information and
+            MUST be protected:
+          </t>
+          
+          <ul spacing="normal">
+            <li>
+              Store checksums with access controls (only IDP can read)
+            </li>
+            <li>
+              Encrypt registry data at rest
+            </li>
+            <li>
+              Log all registry access for audit trails
+            </li>
+            <li>
+              Implement rate limiting on registry queries
+            </li>
+            <li>
+              Regularly backup registry with integrity verification
+            </li>
+          </ul>
+        </section>
+      </section>
+
+      <section anchor="sec_tokens" title="Token Security">  
+        <section anchor="token_lifetime" title="Token Lifetime">
+          <t>
+            Intent tokens SHOULD have short lifetimes (5-10 minutes) because:
+          </t>
+          
+          <ul>
+            <li>
+              They represent user intent for a specific workflow step
+            </li>
+            <li>
+              Workflow state may change rapidly in multi-agent systems
+            </li>
+            <li>
+              Short lifetime limits the window for token theft/replay
+            </li>
+          </ul>
+          
+          <t>
+            The reference implementation uses 5 minutes (300 seconds). But this value should 
+            be fully configurable.
+          </t>
+        
+        </section>
+        <section anchor="proof_of_possession" title="Proof-of-Possession">
+          <t>
+            The cnf (confirmation) claim with JWK binding provides proof-of-possession,
+            preventing token theft. Resource servers SHOULD:
+          </t>
+          
+          <ul>
+            <li>
+              Verify that API requests include proof of possession of the
+              private key corresponding to the JWK in the cnf claim
+            </li>
+            <li>
+              Reject tokens presented without valid proof-of-possession
+            </li>
+            <li>
+              Use mechanisms like DPoP <xref target="I-D.ietf-oauth-dpop"/>
+              for proof-of-possession validation
+            </li>
+          </ul>
+        </section>
+      </section>
+      
+      <section anchor="sec_workflow" title="Workflow Security">
+        <t>
+          Authorization servers MUST implement access controls on workflow 
+          definition endpoints. Only authenticated administrators with appropriate 
+          privileges SHOULD be able to create or modify workflow definitions.
+        </t>
+
+        <t>
+          Implementations SHOULD validate workflow definitions for security 
+          properties such as: (1) no cycles in agent transitions, (2) appropriate 
+          scope restrictions at each step, (3) required approval gates for 
+          high-privilege operations.
+        </t>
+        <section anchor="workflow_validation" title="Workflow Validation">
+          <t>
+            Workflow step validation is critical for preventing privilege
+            escalation. But is applicable only if enabled. Authorization servers MUST:
+          </t>
+          
+          <ul>
+            <li>
+              Enforce prerequisite step completion before issuing tokens
+            </li>
+            <li>
+              Verify approval gates have been passed for steps requiring approval
+            </li>
+            <li>
+              Validate that the delegation_chain is consistent with the
+              workflow definition
+            </li>
+            <li>
+              Prevent agents from skipping required steps
+            </li>
+          </ul>
+        </section>        
+        <section anchor="delegation_chain_integrity" title="Delegation Chain Integrity">
+          <t>
+            The delegation_chain hash provides integrity over the agent
+            delegation path. However, implementations SHOULD additionally:
+          </t>
+          
+          <ul>
+            <li>
+              Maintain a server-side record of delegation chains
+            </li>
+            <li>
+              Validate that each delegation was authorized
+            </li>
+            <li>
+              Limit delegation depth to prevent infinite delegation chains
+            </li>
+            <li>
+              Revoke all tokens in a delegation chain if a parent agent
+              is compromised
+            </li>
+          </ul>
+        </section>
+      </section>
+      
+      <section anchor="implementation-security" numbered="true" toc="default">
+        <name>Implementation Considerations</name>
+  
+        <section anchor="crypto-requirements" numbered="true" toc="default">
+          <name>Cryptographic Requirements</name>
+          
+          <t>
+            Implementations MUST use cryptographically secure hash functions 
+            for agent checksum computation. SHA-256 or stronger algorithms 
+            are REQUIRED. Weaker algorithms such as MD5 or SHA-1 MUST NOT 
+            be used.
+          </t>
+          
+          <t>
+            For proof-of-possession key binding, implementations MUST support 
+            EdDSA with Ed25519 curves <xref target="ED25519"/> or ECDSA with P-256 curves. RSA keys 
+            with minimum 2048-bit length MAY be supported for backward 
+            compatibility.
+          </t>
+          
+          <t>
+            Intent hash computation MUST use SHA-256 or stronger. The hash 
+            MUST be computed over the canonical JSON representation of the 
+            intent token to ensure consistent results across implementations.
+          </t>
+        </section>
+  
+        
+  
+        <section anchor="privacy-considerations" numbered="true" toc="default">
+          <name>Privacy Considerations</name>
+          
+          <t>
+            Authorization servers and resource servers 
+            MUST implement appropriate data retention and deletion policies to 
+            minimize privacy risks.
+          </t>
+          
+          <t>
+            Token logging and audit trails SHOULD exclude sensitive user data 
+            when possible. If user data must be logged, implementations SHOULD 
+            use tokenization or anonymization techniques to protect privacy.
+          </t>
+          
+          <t>
+            Cross-border data transfers of tokens containing personal information 
+            MUST comply with applicable data protection regulations such as GDPR, 
+            CCPA, and similar frameworks.
+          </t>
+        </section>
+  
+        <section anchor="dos-considerations" numbered="true" toc="default">
+          <name>Denial of Service Considerations</name>
+          
+          <t>
+            The additional cryptographic operations required by this protocol 
+            (checksum computation, signature verification, hash computation) 
+            introduce potential denial of service attack vectors. Implementations 
+            SHOULD implement rate limiting on token endpoints.
+          </t>
+          
+          <t>
+            Authorization servers SHOULD monitor for patterns indicating DoS attacks, 
+            such as: (1) excessive token requests from single clients, (2) repeated 
+            failed checksum validations, (3) malformed token requests designed to 
+            trigger expensive validation operations.
+          </t>
+          
+          <t>
+            Resource servers MAY implement caching of validation results (with 
+            appropriate cache invalidation) to reduce computational overhead for 
+            repeated token validations.
+          </t>
+        </section>
+      </section>
+
+      <section anchor="threat-analysis" numbered="true" toc="default">
+        <name>Threat Analysis</name>
+        
+        <t>
+          The following 12 distinct security threats across six STRIDE categories <xref target="SHOSTACK"/> 
+          enumerated with their categorization and mitigation status in 
+          <xref target="t-threats"/>, have been used to demonstrate the need for 
+          this Agentic JWT protocol.
+        </t>
+  
+        <table anchor="t-threats" align="left">
+          <name>Threat Enumeration and Mitigation Status</name>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Threat Name</th>
+              <th>STRIDE</th>
+              <th>OWASP</th>
+              <th>Mitigation</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- Spoofing Threats -->
+            <tr>
+              <td>T1</td>
+              <td>Agent Identity Spoofing</td>
+              <td>Spoofing</td>
+              <td>A01:2021</td>
+              <td>A1, A2</td>
+            </tr>
+            <tr>
+              <td>T2</td>
+              <td>Token Replay Attacks</td>
+              <td>Spoofing</td>
+              <td>A02:2021</td>
+              <td>A6</td>
+            </tr>
+            <tr>
+              <td>T3</td>
+              <td>Shim Library Impersonation</td>
+              <td>Spoofing</td>
+              <td>A08:2021</td>
+              <td>A1, A2</td>
+            </tr>
+            
+            <!-- Tampering Threats -->
+            <tr>
+              <td>T4</td>
+              <td>Runtime Code Modification</td>
+              <td>Tampering</td>
+              <td>A03:2021</td>
+              <td>A1, A12</td>
+            </tr>
+            <tr>
+              <td>T5</td>
+              <td>Prompt Injection Attacks</td>
+              <td>Tampering</td>
+              <td>LLM01:2025</td>
+              <td>A12</td>
+            </tr>
+            <tr>
+              <td>T6</td>
+              <td>Workflow Definition Tampering</td>
+              <td>Tampering</td>
+              <td>A04:2021</td>
+              <td>A8, A11</td>
+            </tr>
+            
+            <!-- Elevation of Privilege -->
+            <tr>
+              <td>T7</td>
+              <td>Cross-Agent Privilege Escalation</td>
+              <td>Priv. Elev.</td>
+              <td>A01:2021</td>
+              <td>A3, A7, A8</td>
+            </tr>
+            <tr>
+              <td>T8</td>
+              <td>Workflow Step Bypass</td>
+              <td>Priv. Elev.</td>
+              <td>A01:2021</td>
+              <td>A8, A10</td>
+            </tr>
+            <tr>
+              <td>T9</td>
+              <td>Scope Inflation</td>
+              <td>Priv. Elev.</td>
+              <td>LLM06:2025</td>
+              <td>A7, A8</td>
+            </tr>
+            
+            <!-- Repudiation -->
+            <tr>
+              <td>T10</td>
+              <td>Intent Origin Forgery</td>
+              <td>Repudiation</td>
+              <td>A09:2021</td>
+              <td>A9, A10</td>
+            </tr>
+            <tr>
+              <td>T11</td>
+              <td>Delegation Chain Manipulation</td>
+              <td>Repudiation</td>
+              <td>A02:2021</td>
+              <td>A6, A9</td>
+            </tr>
+            
+            <!-- Information Disclosure -->
+            <tr>
+              <td>T12</td>
+              <td>Agent Configuration Exposure</td>
+              <td>Info. Disc.</td>
+              <td>A01:2021</td>
+              <td>A1, A2</td>
+            </tr>
+          </tbody>
+        </table>
+        
+        <t>
+          OWASP categories referenced <xref target="OWASP-TOP10-2021"/> A01:2021 (Broken Access Control), 
+          A02:2021 (Cryptographic Failures), A03:2021 (Injection), 
+          A04:2021 (Insecure Design), A08:2021 (Software and Data Integrity Failures), 
+          A09:2021 (Security Logging and Monitoring Failures), 
+          LLM01:2025 (Prompt Injection) <xref target="OWASP-LLM01"/>, LLM06:2025 (Excessive Agency) 
+          <xref target="OWASP-LLM06"/>.
+        </t>
+        
+        <t>
+          Mitigation anchors (detailed in <xref target="t-mitigations"/>): 
+          A1 (Agent Checksum Verification), A2 (Shim Library Integrity), 
+          A3 (Scope Binding), A6 (PoP Key Binding), A7 (Delegation Context), 
+          A8 (Workflow State Tracking), A9 (Intent Hash Binding), 
+          A10 (Step Authorization), A11 (IDP Access Control), 
+          A12 (Input Validation).
+        </t>
+      </section>
+  
+      <section anchor="threat-details" numbered="true" toc="default">
+        <name>Threat Descriptions and Attack Vectors</name>
+        
+        <t>
+          This section provides detailed descriptions of each identified threat,
+          including attack vectors and real-world precedents. 
+          <xref target="t-threat-details"/> presents this information in
+          tabular form.
+        </t>
+  
+        <table anchor="t-threat-details" align="left">
+          <name>Threat Descriptions and Attack Vectors</name>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Description</th>
+              <th>Attack Vector</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>T1</td>
+              <td>A malicious agent impersonates a legitimate agent by replicating 
+              its identifier, source code structure, prompts, and tool configurations 
+              to create a malicious agent with identical checksum signatures.
+              <xref target="OWASP-LLM07"/></td>
+              <td>Attacker gains access to agent source code (e.g., through repository 
+              compromise) and creates a malicious agent with identical checksum 
+              signatures.</td>
+            </tr>
+            
+            <tr>
+              <td>T2</td>
+              <td>Intercepted intent tokens are replayed by unauthorized agents 
+              to gain access to protected resources.</td>
+              <td>Network interception or memory dumps expose valid intent tokens 
+              that are replayed before expiration.</td>
+            </tr>
+            
+            <tr>
+              <td>T3</td>
+              <td>Malicious replacement of legitimate shim library with compromised 
+              version that bypasses security controls.</td>
+              <td>Supply chain compromise or local privilege escalation to replace 
+              shim library files.</td>
+            </tr>
+            
+            <tr>
+              <td>T4</td>
+              <td>Agent prompts, tools, or configurations are modified at runtime 
+              after successful checksum registration.</td>
+              <td>Memory injection, debugger attachment, or reflection-based 
+              modification of agent properties.</td>
+            </tr>
+            
+            <tr>
+              <td>T5</td>
+              <td>Malicious inputs cause LLM agents to generate unintended 
+              instructions that bypass security policies. <xref target="OWASP-LLM01"/>, 
+              <xref target="PEREZ-PROMPT-INJECTION"/>.</td>
+              <td>Crafted user inputs or external data sources containing 
+              prompt injection payloads that manipulate agent reasoning.</td>
+            </tr>
+            
+            <tr>
+              <td>T6</td>
+              <td>Unauthorized modification of workflow definitions in the 
+              authorization server to permit unauthorized agent transitions.</td>
+              <td>Compromised administrative credentials or authorization server 
+              vulnerabilities allowing workflow redefinition.</td>
+            </tr>
+            
+            <tr>
+              <td>T7</td>
+              <td>Lower-privilege agent manipulates higher-privilege agent to 
+              perform unauthorized operations beyond the original user intent.</td>
+              <td>Agent A with read-only permissions crafts requests that cause 
+              Agent B to execute destructive operations.</td>
+            </tr>
+            
+            <tr>
+              <td>T8</td>
+              <td>Agents skip required approval steps or execute workflow steps 
+              out of sequence to gain unauthorized access.</td>
+              <td>Direct API calls bypassing workflow engine or manipulation of 
+              workflow state tracking.</td>
+            </tr>
+            
+            <tr>
+              <td>T9</td>
+              <td>Agents request or utilize broader scopes than originally intended 
+              for the specific workflow step. <xref target="OWASP-LLM06"/></td>
+              <td>Token minting requests with inflated scopes or misuse of broad 
+              scopes for unintended operations.</td>
+            </tr>
+            
+            <tr>
+              <td>T10</td>
+              <td>Unable to cryptographically prove which user intent led to 
+              specific agent actions, enabling plausible deniability.</td>
+              <td>Lack of cryptographic binding between user intent and downstream 
+              agent actions.</td>
+            </tr>
+            
+            <tr>
+              <td>T11</td>
+              <td>Modification or forgery of delegation chains to hide true origin 
+              of agent actions.</td>
+              <td>Manipulation of delegation assertion claims or replay of valid 
+              delegation chains in unauthorized contexts.</td>
+            </tr>
+            
+            <tr>
+              <td>T12</td>
+              <td>Unauthorized access to agent prompts, tools, and configurations 
+              leading to system knowledge disclosure.</td>
+              <td>API endpoints exposing agent metadata or memory dumps revealing 
+              agent configurations.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+  
+      <section anchor="mitigations" numbered="true" toc="default">
+        <name>Security Anchors and Mitigation Mechanisms</name>
+        
+        <t>
+          The Agentic JWT protocol employs twelve security anchors that collectively
+          address all identified threats. <xref target="t-mitigations"/> 
+          describes each mitigation mechanism and the threats it addresses.
+        </t>
+  
+        <table anchor="t-mitigations" align="left">
+          <name>Security Anchors and Mitigation Mechanisms</name>
+          <thead>
+            <tr>
+              <th>Anchor</th>
+              <th>Mechanism</th>
+              <th>Threats</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>A1</td>
+              <td>Agent Checksum Verification: Runtime checksum computation 
+              and verification against registered values</td>
+              <td>T1, T3, T4, T12</td>
+            </tr>
+            
+            <tr>
+              <td>A2</td>
+              <td>Shim Library Integrity: Cryptographic validation of shim 
+              library authenticity</td>
+              <td>T1, T3, T12</td>
+            </tr>
+            
+            <tr>
+              <td>A3</td>
+              <td>Scope Binding: Cryptographic binding of authorized scopes 
+              to specific workflow steps</td>
+              <td>T7, T9</td>
+            </tr>
+            
+            <tr>
+              <td>A6</td>
+              <td>Proof-of-Possession Key Binding: Per-agent cryptographic keys 
+              bound to tokens</td>
+              <td>T2, T11</td>
+            </tr>
+            
+            <tr>
+              <td>A7</td>
+              <td>Delegation Context Validation: Verification of delegation 
+              chain authenticity</td>
+              <td>T7, T9</td>
+            </tr>
+            
+            <tr>
+              <td>A8</td>
+              <td>Workflow State Tracking: Authorization server maintains 
+              workflow execution state</td>
+              <td>T6, T7, T8</td>
+            </tr>
+            
+            <tr>
+              <td>A9</td>
+              <td>Intent Hash Binding: Cryptographic binding of user intent 
+              to token lifecycle</td>
+              <td>T10, T11</td>
+            </tr>
+            
+            <tr>
+              <td>A10</td>
+              <td>Step Authorization: Per-step authorization checks at 
+              resource servers</td>
+              <td>T8, T10</td>
+            </tr>
+            
+            <tr>
+              <td>A11</td>
+              <td>Authorization Server Access Control: Protection of workflow 
+              definitions</td>
+              <td>T6</td>
+            </tr>
+            
+            <tr>
+              <td>A12</td>
+              <td>Input Validation and Sanitization: Validation of agent 
+              inputs and LLM outputs</td>
+              <td>T4, T5</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>  
+      
+    </section>
+
+    <!-- NOTE: The Acknowledgements and Contributors sections are at the end of this template -->
+  </middle>
+
+  <back>
+    <references>
+      <name>References</name>
+      <references title="Normative References">
+
+        <!-- RFC 2119: Keywords (add this even though not in bib) -->
+        <reference anchor="RFC2119" target="https://www.rfc-editor.org/info/rfc2119">
+          <front>
+            <title>Key words for use in RFCs to Indicate Requirement Levels</title>
+            <author initials="S." surname="Bradner" fullname="S. Bradner">
+              <organization/>
+            </author>
+            <date year="1997" month="March"/>
+          </front>
+          <seriesInfo name="BCP" value="14"/>
+          <seriesInfo name="RFC" value="2119"/>
+          <seriesInfo name="DOI" value="10.17487/RFC2119"/>
+        </reference>
+
+        <!-- RFC 8174: Ambiguity of Keywords (add this) -->
+        <reference anchor="RFC8174" target="https://www.rfc-editor.org/info/rfc8174">
+          <front>
+            <title>Ambiguity of Uppercase vs Lowercase in RFC 2119 Key Words</title>
+            <author initials="B." surname="Leiba" fullname="B. Leiba">
+              <organization/>
+            </author>
+            <date year="2017" month="May"/>
+          </front>
+          <seriesInfo name="BCP" value="14"/>
+          <seriesInfo name="RFC" value="8174"/>
+          <seriesInfo name="DOI" value="10.17487/RFC8174"/>
+        </reference>
+
+        <!-- RFC 6749: OAuth 2.0 Framework -->
+        <reference anchor="RFC6749" target="https://www.rfc-editor.org/info/rfc6749">
+          <front>
+            <title>The OAuth 2.0 Authorization Framework</title>
+            <author initials="D." surname="Hardt" fullname="D. Hardt" role="editor">
+              <organization/>
+            </author>
+            <date year="2012" month="October"/>
+          </front>
+          <seriesInfo name="RFC" value="6749"/>
+          <seriesInfo name="DOI" value="10.17487/RFC6749"/>
+        </reference>
+
+        <!-- RFC 6750: Bearer Token Usage -->
+        <reference anchor="RFC6750" target="https://www.rfc-editor.org/info/rfc6750">
+          <front>
+            <title>The OAuth 2.0 Authorization Framework: Bearer Token Usage</title>
+            <author initials="M." surname="Jones" fullname="M. Jones">
+              <organization/>
+            </author>
+            <author initials="D." surname="Hardt" fullname="D. Hardt">
+              <organization/>
+            </author>
+            <date year="2012" month="October"/>
+          </front>
+          <seriesInfo name="RFC" value="6750"/>
+          <seriesInfo name="DOI" value="10.17487/RFC6750"/>
+        </reference>
+
+        <!-- RFC 7519: JSON Web Token -->
+        <reference anchor="RFC7519" target="https://www.rfc-editor.org/info/rfc7519">
+          <front>
+            <title>JSON Web Token (JWT)</title>
+            <author initials="M." surname="Jones" fullname="M. Jones">
+              <organization/>
+            </author>
+            <author initials="J." surname="Bradley" fullname="J. Bradley">
+              <organization/>
+            </author>
+            <author initials="N." surname="Sakimura" fullname="N. Sakimura">
+              <organization/>
+            </author>
+            <date year="2015" month="May"/>
+          </front>
+          <seriesInfo name="RFC" value="7519"/>
+          <seriesInfo name="DOI" value="10.17487/RFC7519"/>
+        </reference>
+
+        <!-- RFC 7515: JSON Web Signature -->
+        <reference anchor="RFC7515" target="https://www.rfc-editor.org/info/rfc7515">
+          <front>
+            <title>JSON Web Signature (JWS)</title>
+            <author initials="M." surname="Jones" fullname="M. Jones">
+              <organization/>
+            </author>
+            <author initials="J." surname="Bradley" fullname="J. Bradley">
+              <organization/>
+            </author>
+            <author initials="N." surname="Sakimura" fullname="N. Sakimura">
+              <organization/>
+            </author>
+            <date year="2015" month="May"/>
+          </front>
+          <seriesInfo name="RFC" value="7515"/>
+          <seriesInfo name="DOI" value="10.17487/RFC7515"/>
+        </reference>
+
+        <!-- RFC 7516: JSON Web Encryption -->
+        <reference anchor="RFC7516" target="https://www.rfc-editor.org/info/rfc7516">
+          <front>
+            <title>JSON Web Encryption (JWE)</title>
+            <author initials="M." surname="Jones" fullname="M. Jones">
+              <organization/>
+            </author>
+            <author initials="J." surname="Bradley" fullname="J. Bradley">
+              <organization/>
+            </author>
+            <author initials="N." surname="Sakimura" fullname="N. Sakimura">
+              <organization/>
+            </author>
+            <date year="2015" month="May"/>
+          </front>
+          <seriesInfo name="RFC" value="7516"/>
+          <seriesInfo name="DOI" value="10.17487/RFC7516"/>
+        </reference>
+
+        <!-- RFC 8785: JSON Canonicalization Scheme (for checksums) -->
+        <reference anchor="RFC8785" target="https://www.rfc-editor.org/info/rfc8785">
+          <front>
+            <title>JSON Canonicalization Scheme (JCS)</title>
+            <author initials="A." surname="Rundgren" fullname="A. Rundgren">
+              <organization/>
+            </author>
+            <author initials="B." surname="Jordan" fullname="B. Jordan">
+              <organization/>
+            </author>
+            <author initials="S." surname="Erdtman" fullname="S. Erdtman">
+              <organization/>
+            </author>
+            <date year="2020" month="June"/>
+          </front>
+          <seriesInfo name="RFC" value="8785"/>
+          <seriesInfo name="DOI" value="10.17487/RFC8785"/>
+        </reference>
+
+        <!-- RFC 6755: JIETF URN Subnamespace for use with OAuth -->
+        <reference anchor="RFC6755" target="https://www.rfc-editor.org/info/rfc6755">
+          <front>
+            <title>An IETF URN Sub-Namespace for OAuth</title>
+            <author initials="B." surname="Campbell" fullname="B. Campbell">
+              <organization/>
+            </author>
+            <author initials="H." surname="Tschofenig" fullname="H. Tschofenig">
+              <organization/>
+            </author>
+            <date year="2012" month="October"/>
+          </front>
+          <seriesInfo name="RFC" value="6755"/>
+          <seriesInfo name="DOI" value="10.17487/RFC6755"/>
+        </reference>
+
+        <!-- FIPS 180-4: SHA-256 (for agent checksums) -->
+        <reference anchor="FIPS-180-4">
+          <front>
+            <title>Secure Hash Standard (SHS)</title>
+            <author>
+              <organization>National Institute of Standards and Technology</organization>
+            </author>
+            <date year="2015" month="August"/>
+          </front>
+          <seriesInfo name="FIPS PUB" value="180-4"/>
+        </reference>
+
+        <!-- RFC 7800: Proof-of-Possession -->
+        <reference anchor="RFC7800" target="https://www.rfc-editor.org/info/rfc7800">
+          <front>
+            <title>Proof-of-Possession Key Semantics for JSON Web Tokens (JWTs)</title>
+            <author initials="M." surname="Jones" fullname="M. Jones">
+              <organization/>
+            </author>
+            <author initials="J." surname="Campbell" fullname="J. Campbell">
+              <organization/>
+            </author>
+            <author initials="J." surname="Bradley" fullname="J. Bradley">
+              <organization/>
+            </author>
+            <date year="2016" month="April"/>
+          </front>
+          <seriesInfo name="RFC" value="7800"/>
+          <seriesInfo name="DOI" value="10.17487/RFC7800"/>
+        </reference>        
+
+      </references>
+
+      <references title="Informative References">
+
+        <!-- RFC 6819: OAuth Threat Model -->
+        <reference anchor="RFC6819" target="https://www.rfc-editor.org/info/rfc6819">
+          <front>
+            <title>OAuth 2.0 Threat Model and Security Considerations</title>
+            <author initials="T." surname="Lodderstedt" fullname="T. Lodderstedt">
+              <organization/>
+            </author>
+            <author initials="M." surname="McGloin" fullname="M. McGloin">
+              <organization/>
+            </author>
+            <author initials="P." surname="Hunt" fullname="P. Hunt">
+              <organization/>
+            </author>
+            <date year="2013" month="January"/>
+          </front>
+          <seriesInfo name="RFC" value="6819"/>
+          <seriesInfo name="DOI" value="10.17487/RFC6819"/>
+        </reference>
+
+        <!-- RFC 8693: Token Exchange -->
+        <reference anchor="RFC8693" target="https://www.rfc-editor.org/info/rfc8693">
+          <front>
+            <title>OAuth 2.0 Token Exchange</title>
+            <author initials="B." surname="Campbell" fullname="B. Campbell">
+              <organization/>
+            </author>
+            <author initials="J." surname="Bradley" fullname="J. Bradley">
+              <organization/>
+            </author>
+            <author initials="N." surname="Sakimura" fullname="N. Sakimura">
+              <organization/>
+            </author>
+            <author initials="M." surname="Jones" fullname="M. Jones">
+              <organization/>
+            </author>
+            <author initials="W." surname="Denniss" fullname="W. Denniss">
+              <organization/>
+            </author>
+            <date year="2020" month="January"/>
+          </front>
+          <seriesInfo name="RFC" value="8693"/>
+          <seriesInfo name="DOI" value="10.17487/RFC8693"/>
+        </reference>
+
+        <!-- I-Draft: DPoP -->
+        <reference anchor="I-D.ietf-oauth-dpop">
+          <front>
+            <title>OAuth 2.0 Demonstrating Proof-of-Possession at the Application Layer (DPoP)</title>
+            <author initials="D." surname="Fett" fullname="D. Fett">
+              <organization/>
+            </author>
+            <author initials="W." surname="Denniss" fullname="W. Denniss">
+              <organization/>
+            </author>
+            <author initials="M." surname="Ansari" fullname="M. Ansari">
+              <organization/>
+            </author>
+            <date year="2024" month="April"/>
+          </front>
+          <seriesInfo name="Internet-Draft" value="draft-ietf-oauth-dpop-06"/>
+        </reference>
+
+        <!-- I-Draft: GNAP -->
+        <reference anchor="I-D.ietf-txauth-gnap">
+          <front>
+            <title>Grant Negotiation and Authorization Protocol</title>
+            <author initials="J." surname="Richer" fullname="J. Richer">
+              <organization/>
+            </author>
+            <author initials="K." surname="Bezemer" fullname="K. Bezemer">
+              <organization/>
+            </author>
+            <date year="2024" month="March"/>
+          </front>
+          <seriesInfo name="Internet-Draft" value="draft-ietf-txauth-gnap-17"/>
+        </reference>
+
+        <!-- NIST SP 800-63: Digital Identity Guidelines -->
+        <reference anchor="NIST-SP-800-63">
+          <front>
+            <title>Digital Identity Guidelines</title>
+            <author>
+              <organization>National Institute of Standards and Technology</organization>
+            </author>
+            <date year="2017" month="June"/>
+          </front>
+          <seriesInfo name="NIST Special Publication" value="800-63-3"/>
+          <seriesInfo name="DOI" value="10.6028/NIST.SP.800-63-3"/>
+        </reference>
+
+        <!-- NIST SP 800-63C: Federation -->
+        <reference anchor="NIST-SP-800-63C">
+          <front>
+            <title>Digital Identity Guidelines: Federation and Assertions</title>
+            <author>
+              <organization>National Institute of Standards and Technology</organization>
+            </author>
+            <date year="2017" month="June"/>
+          </front>
+          <seriesInfo name="NIST Special Publication" value="800-63C"/>
+          <seriesInfo name="DOI" value="10.6028/NIST.SP.800-63c"/>
+        </reference>
+
+        <!-- NIST SP 800-207: Zero Trust -->
+        <reference anchor="NIST-SP-800-207">
+          <front>
+            <title>Zero Trust Architecture</title>
+            <author initials="S." surname="Rose" fullname="Scott Rose">
+              <organization>NIST</organization>
+            </author>
+            <author initials="O." surname="Borchert" fullname="Oliver Borchert">
+              <organization>NIST</organization>
+            </author>
+            <author initials="S." surname="Mitchell" fullname="Stu Mitchell">
+              <organization>NIST</organization>
+            </author>
+            <author initials="S." surname="Connelly" fullname="Sean Connelly">
+              <organization>NIST</organization>
+            </author>
+            <date year="2020" month="September"/>
+          </front>
+          <seriesInfo name="NIST Special Publication" value="800-207"/>
+          <seriesInfo name="DOI" value="10.6028/NIST.SP.800-207"/>
+        </reference>
+
+        <!-- OWASP Top 10 2021 -->
+        <reference anchor="OWASP-TOP10-2021">
+          <front>
+            <title>OWASP Top 10 - 2021: The Ten Most Critical Web Application Security Risks</title>
+            <author>
+              <organization>OWASP Foundation</organization>
+            </author>
+            <date year="2021"/>
+          </front>
+          <seriesInfo name="Version" value="2021"/>
+          <format type="HTML" target="https://owasp.org/Top10/"/>
+        </reference>
+
+        <!-- OWASP LLM01: Prompt Injection -->
+        <reference anchor="OWASP-LLM01">
+          <front>
+            <title>LLM01:2025 Prompt Injection</title>
+            <author>
+              <organization>OWASP Foundation</organization>
+            </author>
+            <date year="2025"/>
+          </front>
+          <seriesInfo name="OWASP Top 10 for LLM Applications" value="v1.1"/>
+          <format type="HTML" target="https://genai.owasp.org/llmrisk/llm01-prompt-injection/"/>
+        </reference>
+
+        <!-- OWASP LLM06: Excessive Agency -->
+        <reference anchor="OWASP-LLM06">
+          <front>
+            <title>LLM06:2025 Excessive Agency</title>
+            <author>
+              <organization>OWASP Foundation</organization>
+            </author>
+            <date year="2025"/>
+          </front>
+          <seriesInfo name="OWASP Top 10 for LLM Applications" value="v1.1"/>
+          <format type="HTML" target="https://genai.owasp.org/llmrisk/llm062025-excessive-agency/"/>
+        </reference>
+
+        <!-- OWASP LLM07: System Prompt Leakage -->
+        <reference anchor="OWASP-LLM07">
+          <front>
+            <title>LLM07:2025 System Prompt Leakage</title>
+            <author>
+              <organization>OWASP Foundation</organization>
+            </author>
+            <date year="2025"/>
+          </front>
+          <seriesInfo name="OWASP Top 10 for LLM Applications" value="v1.1"/>
+          <format type="HTML" target="https://genai.owasp.org/llmrisk/llm072025-system-prompt-leakage/"/>
+        </reference>
+
+        <!-- Shostack: Threat Modeling Book -->
+        <reference anchor="SHOSTACK">
+          <front>
+            <title>Threat Modeling: Designing for Security</title>
+            <author initials="A." surname="Shostack" fullname="Adam Shostack">
+              <organization/>
+            </author>
+            <date year="2014"/>
+          </front>
+          <seriesInfo name="Publisher" value="Wiley"/>
+          <seriesInfo name="ISBN" value="978-1118809990"/>
+        </reference>
+
+        <!-- LangChain/LangGraph -->
+        <reference anchor="LANGCHAIN">
+          <front>
+            <title>LangChain: Framework for Developing LLM-Powered Applications</title>
+            <author initials="H." surname="Chase" fullname="Harrison Chase">
+              <organization>LangChain</organization>
+            </author>
+            <date year="2022"/>
+          </front>
+          <format type="HTML" target="https://github.com/langchain-ai/langchain"/>
+        </reference>
+
+        <!-- LangGraph -->
+        <reference anchor="LANGGRAPH">
+          <front>
+            <title>LangGraph: Library for Building Stateful Multi-Agent Applications</title>
+            <author>
+              <organization>LangChain</organization>
+            </author>
+            <date year="2024"/>
+          </front>
+          <format type="HTML" target="https://github.com/langchain-ai/langgraph"/>
+        </reference>
+
+        <!-- CrewAI -->
+        <reference anchor="CREWAI">
+          <front>
+            <title>CrewAI: Framework for Orchestrating Role-Playing Autonomous AI Agents</title>
+            <author>
+              <organization>CrewAI</organization>
+            </author>
+            <date year="2023"/>
+          </front>
+          <format type="HTML" target="https://github.com/joaomdmoura/crewAI"/>
+        </reference>
+
+        <!-- Model Context Protocol -->
+        <reference anchor="MCP">
+          <front>
+            <title>Model Context Protocol (MCP): A Protocol for Connecting AI Agents to Data Sources and Tools</title>
+            <author>
+              <organization>Anthropic PBC</organization>
+            </author>
+            <date year="2024"/>
+          </front>
+          <format type="HTML" target="https://spec.modelcontextprotocol.io/"/>
+        </reference>
+
+        <!-- gRPC -->
+        <reference anchor="GRPC">
+          <front>
+            <title>gRPC: A High-Performance, Open Source Universal RPC Framework</title>
+            <author>
+              <organization>Google</organization>
+            </author>
+            <date year="2015"/>
+          </front>
+          <format type="HTML" target="https://grpc.io/docs/"/>
+        </reference>
+
+        <!-- Ed25519 Signatures -->
+        <reference anchor="ED25519">
+          <front>
+            <title>High-Speed High-Security Signatures</title>
+            <author initials="D." surname="Bernstein" fullname="Daniel J. Bernstein">
+              <organization/>
+            </author>
+            <author initials="N." surname="Duif" fullname="Niels Duif">
+              <organization/>
+            </author>
+            <author initials="T." surname="Lange" fullname="Tanja Lange">
+              <organization/>
+            </author>
+            <author initials="P." surname="Schwabe" fullname="Peter Schwabe">
+              <organization/>
+            </author>
+            <author initials="B." surname="Yang" fullname="Bo-Yin Yang">
+              <organization/>
+            </author>
+            <date year="2012"/>
+          </front>
+          <seriesInfo name="Cryptology ePrint Archive" value="Report 2011/368"/>
+          <format type="HTML" target="https://eprint.iacr.org/2011/368"/>
+        </reference>
+
+        
+        <!-- Ignore Previous Prompt -->
+        <reference anchor="PEREZ-PROMPT-INJECTION">
+          <front>
+            <title>Ignore Previous Prompt: Attack Techniques For Language Models</title>
+            <author initials="F." surname="Perez" fullname="Fábio Perez">
+              <organization/>
+            </author>
+            <author initials="I." surname="Ribeiro" fullname="Ian Ribeiro">
+              <organization/>
+            </author>
+            <date year="2022"/>
+          </front>
+          <seriesInfo name="arXiv" value="arXiv:2211.09527"/>
+          <seriesInfo name="DOI" value="10.48550/ARXIV.2211.09527"/>
+          <format type="HTML" target="https://arxiv.org/abs/2211.09527"/>
+        </reference>
+
+        <!-- Patent -->
+        <reference anchor="PATENT-REF">
+          <front>
+            <title>Cryptographic Agent Authentication and Intent Delegation System with Checksum Based Identity Verification and Workflow Aware Token Binding</title>
+            <author initials="A." surname="Goswami" fullname="Abhishek Goswami">
+              <organization/>
+            </author>
+            <date year="2025" month="August" day="30"/>
+          </front>
+          <seriesInfo name="U.S. Patent Application" value="19/315,486"/>
+          <annotation>pending</annotation>
+        </reference>
+
+        <!-- Placeholder for YOUR research paper (update when published) -->
+        <reference anchor="PAPER-REF">
+          <front>
+            <title>Agentic JWT: Securing Autonomous AI Agents Through Cryptographic Intent Binding</title>
+            <author initials="A." surname="Goswami" fullname="Abhishek Goswami">
+              <organization/>
+            </author>
+            <date year="2025"/>
+          </front>
+          <seriesInfo name="arXiv" value="arXiv:2509.13597"/>
+          <annotation>To be updated with actual arXiv identifier after publication</annotation>
+        </reference>
+
+        <reference anchor="IANA.OAuth.URI" 
+           target="https://www.iana.org/assignments/oauth-parameters/oauth-parameters.xhtml#uri">
+          <front>
+            <title>OAuth URI</title>
+            <author>
+              <organization>IANA</organization>
+            </author>
+            <date/>
+          </front>
+        </reference>
+
+        <reference anchor="IANA.OAuth.Parameters" 
+           target="https://www.iana.org/assignments/oauth-parameters/oauth-parameters.xhtml#parameters">
+          <front>
+            <title>OAuth Parameters</title>
+            <author>
+              <organization>IANA</organization>
+            </author>
+            <date/>
+          </front>
+        </reference>
+        
+        <reference anchor="IANA.JWT.Claims" 
+           target="https://www.iana.org/assignments/jwt/jwt.xhtml#claims">
+          <front>
+            <title>JSON Web Token Claims</title>
+            <author>
+              <organization>IANA</organization>
+            </author>
+            <date/>
+          </front>
+        </reference>
+
+        <reference anchor="IANA.Extensions.Error" 
+           target="https://www.iana.org/assignments/oauth-parameters/oauth-parameters.xhtml#extensions-error">
+          <front>
+            <title>JSON Web Token Claims</title>
+            <author>
+              <organization>IANA</organization>
+            </author>
+            <date/>
+          </front>
+        </reference>
+
+      </references>
+    </references>
+    
+    <section anchor="Acknowledgements" numbered="false">
+      <!-- an Acknowledgements section is optional -->
+      <name>Acknowledgements</name>
+      <t>This work builds upon the foundational contributions of the 
+    OAuth working group and the broader internet security community.</t>
+    </section>
+    
+    <section anchor="Contributors" numbered="false">
+      <!-- a Contributors section is optional -->
+      <name>Contributors</name>
+      <contact fullname="Abhishek Goswami" initials="A" surname="Goswami"><!-- https://authors.ietf.org/en/rfcxml-vocabulary#contact-->
+        <!-- including contact information for contributors is optional -->
+        <address>
+          <email>abhishek@abhishekgoswami.io</email>
+        </address>
+      </contact>
+    </section>
+    
+ </back>
+</rfc>
